@@ -41,7 +41,7 @@ local Settings = {
 
     -- SYSTEM
     MenuOpen = true,
-    Friends = {} 
+    Friends = {gtasa244adm17} 
 } 
 
 local Colors = { 
