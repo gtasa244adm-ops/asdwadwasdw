@@ -1,5 +1,6 @@
--- GTA SCRIPTS HUB - VERSÃO COMPLETA COM COMBAT
+-- GTA SCRIPTS HUB - ULTIMATE EDITION V3.0
 -- by: gta (gtasa244adm17)
+-- 🔥 VERSÃO SUPREMA COM TODAS AS FEATURES 🔥
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,87 +9,137 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local Lighting = game:GetService("Lighting")
 
 local LPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local IsMobile = UserInputService.TouchEnabled
 
--- CONFIGURAÇÕES DO DONO
+-- ==========================================
+-- KEY SYSTEM
+-- ==========================================
+local KEY_ENABLED = true -- MUDE PARA false PARA DESABILITAR A KEY
+local CORRECT_KEY = "gg_xiter_menu_seu_jogo_suas_regras" -- MUDE A KEY AQUI
+local keyValidated = false
+
+if KEY_ENABLED then
+    local function CheckKey()
+        local KeyGui = Instance.new("ScreenGui")
+        KeyGui.Name = "KeySystem"
+        KeyGui.Parent = game:GetService("CoreGui")
+        KeyGui.ResetOnSpawn = false
+        
+        local KeyFrame = Instance.new("Frame", KeyGui)
+        KeyFrame.Size = UDim2.new(0, 400, 0, 200)
+        KeyFrame.Position = UDim2.new(0.5, -200, 0.5, -100)
+        KeyFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        KeyFrame.BorderSizePixel = 0
+        
+        local Corner = Instance.new("UICorner", KeyFrame)
+        Corner.CornerRadius = UDim.new(0, 15)
+        
+        local Gradient = Instance.new("UIGradient", KeyFrame)
+        Gradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+        }
+        
+        local Stroke = Instance.new("UIStroke", KeyFrame)
+        Stroke.Color = Color3.fromRGB(255, 40, 0)
+        Stroke.Thickness = 3
+        
+        local Title = Instance.new("TextLabel", KeyFrame)
+        Title.Size = UDim2.new(1, 0, 0, 50)
+        Title.BackgroundTransparency = 1
+        Title.Text = "🔥 GTA SCRIPTS HUB 🔥"
+        Title.TextColor3 = Color3.new(1, 1, 1)
+        Title.Font = Enum.Font.GothamBold
+        Title.TextSize = 20
+        
+        local Subtitle = Instance.new("TextLabel", KeyFrame)
+        Subtitle.Size = UDim2.new(1, 0, 0, 30)
+        Subtitle.Position = UDim2.new(0, 0, 0, 50)
+        Subtitle.BackgroundTransparency = 1
+        Subtitle.Text = "Digite a Key para continuar"
+        Subtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+        Subtitle.Font = Enum.Font.Gotham
+        Subtitle.TextSize = 14
+        
+        local KeyBox = Instance.new("TextBox", KeyFrame)
+        KeyBox.Size = UDim2.new(0.8, 0, 0, 40)
+        KeyBox.Position = UDim2.new(0.1, 0, 0, 90)
+        KeyBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        KeyBox.PlaceholderText = "Insira a key aqui..."
+        KeyBox.Text = ""
+        KeyBox.TextColor3 = Color3.new(1, 1, 1)
+        KeyBox.Font = Enum.Font.Gotham
+        KeyBox.TextSize = 14
+        
+        local KeyBoxCorner = Instance.new("UICorner", KeyBox)
+        KeyBoxCorner.CornerRadius = UDim.new(0, 8)
+        
+        local SubmitBtn = Instance.new("TextButton", KeyFrame)
+        SubmitBtn.Size = UDim2.new(0.8, 0, 0, 40)
+        SubmitBtn.Position = UDim2.new(0.1, 0, 0, 145)
+        SubmitBtn.BackgroundColor3 = Color3.fromRGB(255, 40, 0)
+        SubmitBtn.Text = "ENTRAR"
+        SubmitBtn.TextColor3 = Color3.new(1, 1, 1)
+        SubmitBtn.Font = Enum.Font.GothamBold
+        SubmitBtn.TextSize = 16
+        
+        local BtnCorner = Instance.new("UICorner", SubmitBtn)
+        BtnCorner.CornerRadius = UDim.new(0, 8)
+        
+        local function ValidateKey()
+            if KeyBox.Text == CORRECT_KEY then
+                keyValidated = true
+                KeyGui:Destroy()
+                return true
+            else
+                Subtitle.Text = "❌ Key incorreta! Tente novamente"
+                Subtitle.TextColor3 = Color3.fromRGB(255, 0, 0)
+                wait(2)
+                Subtitle.Text = "Digite a Key para continuar"
+                Subtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+                return false
+            end
+        end
+        
+        SubmitBtn.MouseButton1Click:Connect(ValidateKey)
+        KeyBox.FocusLost:Connect(function(enter)
+            if enter then
+                ValidateKey()
+            end
+        end)
+        
+        -- Esperar validação
+        repeat wait() until keyValidated
+    end
+    
+    CheckKey()
+end
+
+-- Se key system desativado, validar automaticamente
+if not KEY_ENABLED then
+    keyValidated = true
+end
+
+-- Só continua se key for válida
+if not keyValidated then
+    return
+end
+
+-- ==========================================
+-- CONFIGURAÇÕES E PROTEÇÃO
+-- ==========================================
 local OWNER_USERNAME = "gtasa244adm17"
 local PROTECTED_USERS = {
     ["gtasa244adm17"] = true,
     ["gtasa244adm21"] = true
 }
 
--- SISTEMA DE SAVE/LOAD
-local function SaveSettings()
-    local saveData = {
-        AimbotEnabled = Settings.AimbotEnabled,
-        SilentAim = Settings.SilentAim,
-        TriggerBot = Settings.TriggerBot,
-        WallCheck = Settings.WallCheck,
-        TeamCheck = Settings.TeamCheck,
-        FOVRadius = Settings.FOVRadius,
-        ShowFOV = Settings.ShowFOV,
-        Smoothness = Settings.Smoothness,
-        ESPEnabled = Settings.ESPEnabled,
-        ESPBox = Settings.ESPBox,
-        ESPSkeleton = Settings.ESPSkeleton,
-        ESPLine = Settings.ESPLine,
-        ESPName = Settings.ESPName,
-        ESPDist = Settings.ESPDist,
-        ESPTool = Settings.ESPTool,
-        ESPView = Settings.ESPView,
-        InfJump = Settings.InfJump,
-        Noclip = Settings.Noclip,
-        TPWalk = Settings.TPWalk,
-        TPSpeed = Settings.TPSpeed,
-        Friends = Settings.Friends
-    }
-    
-    if writefile then
-        writefile("GTA_Hub_Config.json", game:GetService("HttpService"):JSONEncode(saveData))
-        print("✅ Configurações salvas!")
-    end
-end
-
-local function LoadSettings()
-    if readfile and isfile and isfile("GTA_Hub_Config.json") then
-        local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(readfile("GTA_Hub_Config.json"))
-        end)
-        
-        if success and data then
-            Settings.AimbotEnabled = data.AimbotEnabled or false
-            Settings.SilentAim = data.SilentAim or false
-            Settings.TriggerBot = data.TriggerBot or false
-            Settings.WallCheck = data.WallCheck or false
-            Settings.TeamCheck = data.TeamCheck or false
-            Settings.FOVRadius = data.FOVRadius or 135
-            Settings.ShowFOV = data.ShowFOV or false
-            Settings.Smoothness = data.Smoothness or 0.5
-            Settings.ESPEnabled = data.ESPEnabled or false
-            Settings.ESPBox = data.ESPBox or false
-            Settings.ESPSkeleton = data.ESPSkeleton or false
-            Settings.ESPLine = data.ESPLine or false
-            Settings.ESPName = data.ESPName or false
-            Settings.ESPDist = data.ESPDist or false
-            Settings.ESPTool = data.ESPTool or false
-            Settings.ESPView = data.ESPView or false
-            Settings.InfJump = data.InfJump or false
-            Settings.Noclip = data.Noclip or false
-            Settings.TPWalk = data.TPWalk or false
-            Settings.TPSpeed = data.TPSpeed or 1
-            Settings.Friends = data.Friends or {}
-            print("✅ Configurações carregadas!")
-            return true
-        end
-    end
-    return false
-end
-
 -- ==========================================
--- CONFIGURAÇÕES COMBAT
+-- SETTINGS
 -- ==========================================
 local Settings = {
     -- COMBAT
@@ -101,6 +152,9 @@ local Settings = {
     FOVRadius = 135,
     ShowFOV = false,
     Smoothness = 0.5,
+    Spinbot = false,
+    SpinSpeed = 20,
+    IgnoreNonCollidable = true,
     
     -- ESP
     ESPEnabled = false,
@@ -111,6 +165,7 @@ local Settings = {
     ESPDist = false,
     ESPTool = false,
     ESPView = false,
+    ESPHealth = false,
     ESPColor = Color3.fromRGB(255, 0, 0),
     FriendColor = Color3.fromRGB(0, 255, 0),
     
@@ -120,13 +175,107 @@ local Settings = {
     TPWalk = false,
     TPSpeed = 1,
     TPBehind = false,
+    AntiAFK = false,
+    NoFog = false,
+    Fullbright = false,
+    
+    -- ADVANCED
+    FollowMode = false,
+    FollowTarget = nil,
+    ViewMode = false,
+    ViewTarget = nil,
+    SpectateMode = false,
+    SpectateTarget = nil,
+    MassTP = false,
     
     -- SYSTEM
-    Friends = {}
+    Friends = {},
+    SavedPosition = nil
 }
 
 -- ==========================================
--- CRIAR GUI PRINCIPAL
+-- AUTO-SAVE SYSTEM
+-- ==========================================
+local saveFolder = "GTA_Hub_Saves"
+local saveFile = saveFolder .. "/config.json"
+
+local function SaveSettings()
+    local saveData = {
+        AimbotEnabled = Settings.AimbotEnabled,
+        SilentAim = Settings.SilentAim,
+        TriggerBot = Settings.TriggerBot,
+        WallCheck = Settings.WallCheck,
+        TeamCheck = Settings.TeamCheck,
+        FOVRadius = Settings.FOVRadius,
+        ShowFOV = Settings.ShowFOV,
+        Smoothness = Settings.Smoothness,
+        Spinbot = Settings.Spinbot,
+        SpinSpeed = Settings.SpinSpeed,
+        IgnoreNonCollidable = Settings.IgnoreNonCollidable,
+        ESPEnabled = Settings.ESPEnabled,
+        ESPBox = Settings.ESPBox,
+        ESPSkeleton = Settings.ESPSkeleton,
+        ESPLine = Settings.ESPLine,
+        ESPName = Settings.ESPName,
+        ESPDist = Settings.ESPDist,
+        ESPTool = Settings.ESPTool,
+        ESPView = Settings.ESPView,
+        ESPHealth = Settings.ESPHealth,
+        InfJump = Settings.InfJump,
+        Noclip = Settings.Noclip,
+        TPWalk = Settings.TPWalk,
+        TPSpeed = Settings.TPSpeed,
+        AntiAFK = Settings.AntiAFK,
+        NoFog = Settings.NoFog,
+        Fullbright = Settings.Fullbright,
+        Friends = Settings.Friends
+    }
+    
+    if writefile then
+        if not isfolder or not isfolder(saveFolder) then
+            if makefolder then
+                makefolder(saveFolder)
+            end
+        end
+        writefile(saveFile, game:GetService("HttpService"):JSONEncode(saveData))
+    end
+end
+
+local function LoadSettings()
+    if readfile and isfile and isfile(saveFile) then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile(saveFile))
+        end)
+        
+        if success and data then
+            for k, v in pairs(data) do
+                if Settings[k] ~= nil then
+                    Settings[k] = v
+                end
+            end
+            return true
+        end
+    end
+    return false
+end
+
+local function DeleteSave()
+    if delfile and isfile and isfile(saveFile) then
+        delfile(saveFile)
+        return true
+    end
+    return false
+end
+
+-- Auto-save a cada 30 segundos
+spawn(function()
+    while wait(30) do
+        SaveSettings()
+    end
+end)
+
+-- ==========================================
+-- CRIAR GUI
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "GTAScriptsHub"
@@ -225,7 +374,6 @@ local MainStroke = Instance.new("UIStroke", MainFrame)
 MainStroke.Color = Color3.fromRGB(255, 40, 0)
 MainStroke.Thickness = 3
 
--- Gradiente Vermelho/Preto
 local Gradient = Instance.new("UIGradient", MainFrame)
 Gradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
@@ -251,19 +399,17 @@ HeaderGradient.Color = ColorSequence.new{
 }
 HeaderGradient.Rotation = 0
 
--- Título
 local TitleLabel = Instance.new("TextLabel", Header)
 TitleLabel.Size = UDim2.new(0, 400, 1, 0)
 TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🔥 GTA SCRIPTS HUB - ULTIMATE 🔥"
+TitleLabel.Text = "🔥 GTA SCRIPTS HUB - ULTIMATE V3 🔥"
 TitleLabel.TextColor3 = Color3.new(1, 1, 1)
-TitleLabel.TextSize = 16
+TitleLabel.TextSize = 14
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.ZIndex = 7
 
--- Botão Fechar
 local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 35, 0, 35)
 CloseBtn.Position = UDim2.new(1, -40, 0, 2.5)
@@ -285,7 +431,7 @@ TabsContainer.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
 TabsContainer.BorderSizePixel = 0
 TabsContainer.ZIndex = 6
 
--- CONTENT AREA
+-- CONTENT
 local Content = Instance.new("Frame", MainFrame)
 Content.Position = UDim2.new(0, 0, 0, 85)
 Content.Size = UDim2.new(1, 0, 1, -85)
@@ -298,7 +444,7 @@ local function CreateTab(name)
     TabFrame.Size = UDim2.new(1, 0, 1, 0)
     TabFrame.BackgroundTransparency = 1
     TabFrame.Visible = false
-    TabFrame.CanvasSize = UDim2.new(0, 0, 3, 0)
+    TabFrame.CanvasSize = UDim2.new(0, 0, 4, 0)
     TabFrame.ScrollBarThickness = 5
     TabFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 40, 0)
     TabFrame.BorderSizePixel = 0
@@ -320,7 +466,6 @@ local ESPTab = CreateTab("ESP")
 local MiscTab = CreateTab("Misc")
 local PlayersTab = CreateTab("Players")
 
--- Mostrar primeira tab
 CombatTab.Visible = true
 
 -- Criar botões das tabs
@@ -439,12 +584,13 @@ local function CreateToggle(parent, text, callback)
             pcall(callback, toggled)
         end
         
-        -- Auto-save após mudança
         spawn(function()
             wait(0.5)
             SaveSettings()
         end)
     end)
+    
+    return ToggleBtn
 end
 
 local function CreateSlider(parent, text, min, max, default, callback)
@@ -489,7 +635,6 @@ local function CreateSlider(parent, text, min, max, default, callback)
                 pcall(callback, n)
             end
             
-            -- Auto-save após mudança
             spawn(function()
                 wait(0.5)
                 SaveSettings()
@@ -535,9 +680,14 @@ CreateToggle(CombatTab, "Silent Aim (Mira Travada)", function(v) Settings.Silent
 CreateToggle(CombatTab, "TriggerBot (Auto Fire)", function(v) Settings.TriggerBot = v end)
 CreateToggle(CombatTab, "WallCheck (Não mira parede)", function(v) Settings.WallCheck = v end)
 CreateToggle(CombatTab, "TeamCheck (Ignora Time)", function(v) Settings.TeamCheck = v end)
+CreateToggle(CombatTab, "Ignorar Não-Colidível", function(v) Settings.IgnoreNonCollidable = v end)
 CreateToggle(CombatTab, "Mostrar FOV", function(v) Settings.ShowFOV = v end)
 CreateSlider(CombatTab, "Raio FOV", 20, 800, 135, function(v) Settings.FOVRadius = v end)
 CreateSlider(CombatTab, "Suavidade (1=Rápido)", 1, 10, 5, function(v) Settings.Smoothness = v/10 end)
+
+CreateSection(CombatTab, "Spinbot")
+CreateToggle(CombatTab, "🔄 Ativar Spinbot", function(v) Settings.Spinbot = v end)
+CreateSlider(CombatTab, "Velocidade Spin", 1, 100, 20, function(v) Settings.SpinSpeed = v end)
 
 -- ==========================================
 -- ESP TAB
@@ -550,108 +700,108 @@ CreateToggle(ESPTab, "Tracers (Linhas)", function(v) Settings.ESPLine = v end)
 CreateToggle(ESPTab, "View Tracers (Olhar)", function(v) Settings.ESPView = v end)
 CreateToggle(ESPTab, "Nomes", function(v) Settings.ESPName = v end)
 CreateToggle(ESPTab, "Distância", function(v) Settings.ESPDist = v end)
-CreateToggle(ESPTab, "Arma na Mão", function(v) Settings.ESPTool = v end)
+CreateToggle(ESPTab, "Armas (Inventário)", function(v) Settings.ESPTool = v end)
+CreateToggle(ESPTab, "🌈 Health Bar Rainbow", function(v) Settings.ESPHealth = v end)
 
 -- ==========================================
 -- MISC TAB
 -- ==========================================
 CreateSection(MiscTab, "Movement")
-CreateToggle(MiscTab, "Pulo Infinito (InfJump)", function(v) Settings.InfJump = v end)
-CreateToggle(MiscTab, "Noclip (Atravessar Paredes)", function(v) Settings.Noclip = v end)
+CreateToggle(MiscTab, "Pulo Infinito", function(v) Settings.InfJump = v end)
+CreateToggle(MiscTab, "Noclip", function(v) Settings.Noclip = v end)
 CreateToggle(MiscTab, "Speed Hack (TP Walk)", function(v) Settings.TPWalk = v end)
 CreateSlider(MiscTab, "Velocidade TP", 1, 5, 1, function(v) Settings.TPSpeed = v end)
 
-CreateSection(MiscTab, "Teleporte")
-CreateButton(MiscTab, "TP Atrás do Inimigo (Perto)", function()
+CreateSection(MiscTab, "Visual")
+CreateToggle(MiscTab, "🔆 Fullbright", function(v) Settings.Fullbright = v end)
+CreateToggle(MiscTab, "🌫️ No Fog", function(v) Settings.NoFog = v end)
+CreateToggle(MiscTab, "⏰ Anti-AFK", function(v) Settings.AntiAFK = v end)
+
+CreateSection(MiscTab, "Teleporte Avançado")
+CreateToggle(MiscTab, "🎯 Follow Mode (Grudar)", function(v)
+    Settings.FollowMode = v
+    if not v then
+        Settings.FollowTarget = nil
+        if Settings.SavedPosition and LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LPlayer.Character.HumanoidRootPart.CFrame = Settings.SavedPosition
+            Settings.SavedPosition = nil
+        end
+    else
+        if LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            Settings.SavedPosition = LPlayer.Character.HumanoidRootPart.CFrame
+        end
+    end
+end)
+
+CreateToggle(MiscTab, "👁️ View Mode (Só Ver)", function(v)
+    Settings.ViewMode = v
+    if not v then
+        Settings.ViewTarget = nil
+        if Settings.SavedPosition and LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LPlayer.Character.HumanoidRootPart.CFrame = Settings.SavedPosition
+            Settings.SavedPosition = nil
+        end
+    else
+        if LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            Settings.SavedPosition = LPlayer.Character.HumanoidRootPart.CFrame
+        end
+    end
+end)
+
+CreateButton(MiscTab, "TP Atrás do Inimigo Próximo", function()
     Settings.TPBehind = true
     wait(0.1)
     Settings.TPBehind = false
 end)
 
-CreateSection(MiscTab, "Configurações")
-CreateButton(MiscTab, "💾 Salvar Configurações", function()
+CreateSection(MiscTab, "Saves")
+CreateButton(MiscTab, "💾 Salvar Config", function()
     SaveSettings()
-    -- Notificação visual
     local notif = Instance.new("TextLabel", ScreenGui)
     notif.Size = UDim2.new(0, 300, 0, 50)
     notif.Position = UDim2.new(0.5, -150, 0.9, 0)
     notif.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    notif.Text = "✅ Configurações Salvas!"
+    notif.Text = "✅ Salvo!"
     notif.TextColor3 = Color3.new(1, 1, 1)
     notif.Font = Enum.Font.GothamBold
     notif.TextSize = 16
     notif.ZIndex = 200
-    
     local corner = Instance.new("UICorner", notif)
     corner.CornerRadius = UDim.new(0, 10)
-    
     wait(2)
     notif:Destroy()
 end)
 
-CreateButton(MiscTab, "📂 Carregar Configurações", function()
+CreateButton(MiscTab, "📂 Carregar Config", function()
     local loaded = LoadSettings()
-    
-    -- Notificação visual
     local notif = Instance.new("TextLabel", ScreenGui)
     notif.Size = UDim2.new(0, 300, 0, 50)
     notif.Position = UDim2.new(0.5, -150, 0.9, 0)
     notif.BackgroundColor3 = loaded and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
-    notif.Text = loaded and "✅ Configurações Carregadas!" or "❌ Nenhum Save Encontrado"
+    notif.Text = loaded and "✅ Carregado!" or "❌ Sem Save"
     notif.TextColor3 = Color3.new(1, 1, 1)
     notif.Font = Enum.Font.GothamBold
     notif.TextSize = 16
     notif.ZIndex = 200
-    
     local corner = Instance.new("UICorner", notif)
     corner.CornerRadius = UDim.new(0, 10)
-    
     wait(2)
     notif:Destroy()
 end)
 
-CreateButton(MiscTab, "🗑️ Resetar Configurações", function()
-    if delfile and isfile and isfile("GTA_Hub_Config.json") then
-        delfile("GTA_Hub_Config.json")
-    end
-    
-    -- Reset settings
-    Settings.AimbotEnabled = false
-    Settings.SilentAim = false
-    Settings.TriggerBot = false
-    Settings.WallCheck = false
-    Settings.TeamCheck = false
-    Settings.FOVRadius = 135
-    Settings.ShowFOV = false
-    Settings.Smoothness = 0.5
-    Settings.ESPEnabled = false
-    Settings.ESPBox = false
-    Settings.ESPSkeleton = false
-    Settings.ESPLine = false
-    Settings.ESPName = false
-    Settings.ESPDist = false
-    Settings.ESPTool = false
-    Settings.ESPView = false
-    Settings.InfJump = false
-    Settings.Noclip = false
-    Settings.TPWalk = false
-    Settings.TPSpeed = 1
-    Settings.Friends = {}
-    
-    -- Notificação
+CreateButton(MiscTab, "🗑️ Apagar Save", function()
+    DeleteSave()
     local notif = Instance.new("TextLabel", ScreenGui)
     notif.Size = UDim2.new(0, 300, 0, 50)
     notif.Position = UDim2.new(0.5, -150, 0.9, 0)
     notif.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-    notif.Text = "🔄 Configurações Resetadas!"
+    notif.Text = "🗑️ Save Apagado!"
     notif.TextColor3 = Color3.new(1, 1, 1)
     notif.Font = Enum.Font.GothamBold
     notif.TextSize = 16
     notif.ZIndex = 200
-    
     local corner = Instance.new("UICorner", notif)
     corner.CornerRadius = UDim.new(0, 10)
-    
     wait(2)
     notif:Destroy()
 end)
@@ -659,14 +809,27 @@ end)
 -- ==========================================
 -- PLAYERS TAB
 -- ==========================================
-CreateSection(PlayersTab, "Player List")
+CreateSection(PlayersTab, "Player Management")
 
-local RefreshBtn = CreateButton(PlayersTab, "🔄 Atualizar Lista", function()
-    -- Refresh será implementado abaixo
+CreateButton(PlayersTab, "🔄 Atualizar Lista", function()
+    -- Implementado abaixo
+end)
+
+CreateButton(PlayersTab, "📍 Mass TP (Todos para Você)", function()
+    if LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myPos = LPlayer.Character.HumanoidRootPart.CFrame
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LPlayer and not PROTECTED_USERS[p.Name] and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                if not Settings.TeamCheck or p.Team ~= LPlayer.Team then
+                    p.Character.HumanoidRootPart.CFrame = myPos * CFrame.new(math.random(-5, 5), 0, math.random(-5, 5))
+                end
+            end
+        end
+    end
 end)
 
 local PlayersList = Instance.new("Frame", PlayersTab)
-PlayersList.Size = UDim2.new(0.95, 0, 1, -100)
+PlayersList.Size = UDim2.new(0.95, 0, 1, -150)
 PlayersList.BackgroundTransparency = 1
 PlayersList.ZIndex = 7
 
@@ -692,27 +855,27 @@ local function RefreshPlayers()
             Corner.CornerRadius = UDim.new(0, 6)
             
             local Name = Instance.new("TextLabel", Frame)
-            Name.Size = UDim2.new(0.5, 0, 1, 0)
+            Name.Size = UDim2.new(0.4, 0, 1, 0)
             Name.Position = UDim2.new(0, 10, 0, 0)
             Name.BackgroundTransparency = 1
             Name.Text = p.Name
             Name.TextColor3 = Color3.new(1, 1, 1)
             Name.Font = Enum.Font.Gotham
-            Name.TextSize = 11
+            Name.TextSize = 10
             Name.TextXAlignment = Enum.TextXAlignment.Left
             Name.ZIndex = 9
             
             local FriendBtn = Instance.new("TextButton", Frame)
-            FriendBtn.Size = UDim2.new(0, 70, 0, 25)
-            FriendBtn.Position = UDim2.new(0.55, 0, 0.5, -12.5)
+            FriendBtn.Size = UDim2.new(0, 60, 0, 25)
+            FriendBtn.Position = UDim2.new(0.42, 0, 0.5, -12.5)
             FriendBtn.ZIndex = 9
             
             local FriendCorner = Instance.new("UICorner", FriendBtn)
             FriendCorner.CornerRadius = UDim.new(0, 6)
             
             local TPBtn = Instance.new("TextButton", Frame)
-            TPBtn.Size = UDim2.new(0, 50, 0, 25)
-            TPBtn.Position = UDim2.new(1, -60, 0.5, -12.5)
+            TPBtn.Size = UDim2.new(0, 40, 0, 25)
+            TPBtn.Position = UDim2.new(0.65, 0, 0.5, -12.5)
             TPBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
             TPBtn.Text = "TP"
             TPBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -722,6 +885,19 @@ local function RefreshPlayers()
             
             local TPCorner = Instance.new("UICorner", TPBtn)
             TPCorner.CornerRadius = UDim.new(0, 6)
+            
+            local FollowBtn = Instance.new("TextButton", Frame)
+            FollowBtn.Size = UDim2.new(0, 40, 0, 25)
+            FollowBtn.Position = UDim2.new(0.85, 0, 0.5, -12.5)
+            FollowBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            FollowBtn.Text = "👁️"
+            FollowBtn.TextColor3 = Color3.new(1, 1, 1)
+            FollowBtn.Font = Enum.Font.GothamBold
+            FollowBtn.TextSize = 11
+            FollowBtn.ZIndex = 9
+            
+            local FollowCorner = Instance.new("UICorner", FollowBtn)
+            FollowCorner.CornerRadius = UDim.new(0, 6)
             
             local function UpdateFriend()
                 if Settings.Friends[p.Name] then
@@ -740,6 +916,7 @@ local function RefreshPlayers()
             FriendBtn.MouseButton1Click:Connect(function()
                 Settings.Friends[p.Name] = not Settings.Friends[p.Name]
                 UpdateFriend()
+                SaveSettings()
             end)
             
             TPBtn.MouseButton1Click:Connect(function()
@@ -747,18 +924,26 @@ local function RefreshPlayers()
                     LPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
                 end
             end)
+            
+            FollowBtn.MouseButton1Click:Connect(function()
+                if Settings.FollowMode then
+                    Settings.FollowTarget = p
+                    FollowBtn.BackgroundColor3 = Color3.fromRGB(255, 40, 0)
+                elseif Settings.ViewMode then
+                    Settings.ViewTarget = p
+                    FollowBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+                end
+            end)
         end
     end
 end
 
 RefreshPlayers()
-
--- Atualizar automaticamente quando players entram/saem
 Players.PlayerAdded:Connect(RefreshPlayers)
 Players.PlayerRemoving:Connect(RefreshPlayers)
 
 -- ==========================================
--- CONTROLE DE ABRIR/FECHAR
+-- CONTROLE JANELA
 -- ==========================================
 local isOpen = false
 
@@ -783,15 +968,13 @@ OpenBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- LÓGICA DO COMBAT ENGINE
+-- ENGINE DE COMBAT
 -- ==========================================
-local DrawingLib = {}
 local Skeletons = {}
 local Tracers = {}
 local ViewTracers = {}
 local Texts = {}
 
--- Drawing API safe check
 local function NewLine()
     if Drawing then
         local l = Drawing.new("Line")
@@ -829,7 +1012,6 @@ end
 local FOVCircle = nil
 pcall(function() FOVCircle = NewCircle() end)
 
--- Limpeza ESP
 local function ClearESP(plr)
     if Skeletons[plr] then
         for _, l in pairs(Skeletons[plr]) do
@@ -856,7 +1038,6 @@ end
 
 Players.PlayerRemoving:Connect(ClearESP)
 
--- Verificar se é visível (WallCheck)
 local function IsVisible(target)
     if not Settings.WallCheck then return true end
     local params = RaycastParams.new()
@@ -866,21 +1047,21 @@ local function IsVisible(target)
     return (not res) or res.Instance:IsDescendantOf(target.Parent)
 end
 
--- Pegar alvo mais próximo
 local function GetTarget()
     local best, minDist = nil, Settings.FOVRadius
     local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-            -- Proteção para owners
             if PROTECTED_USERS[v.Name] then continue end
-            
-            -- TeamCheck
             if Settings.TeamCheck and v.Team == LPlayer.Team then continue end
-            
-            -- Não mira em amigos
             if Settings.Friends[v.Name] then continue end
+            
+            -- Ignorar não-colidível
+            if Settings.IgnoreNonCollidable then
+                local hrp = v.Character.HumanoidRootPart
+                if not hrp.CanCollide then continue end
+            end
             
             local part = v.Character:FindFirstChild(Settings.TargetMode) or v.Character:FindFirstChild("Head")
             if part then
@@ -899,8 +1080,14 @@ local function GetTarget()
     return best
 end
 
+-- Rainbow color generator
+local function GetRainbowColor()
+    local hue = (tick() % 5) / 5
+    return Color3.fromHSV(hue, 1, 1)
+end
+
 -- ==========================================
--- RENDER LOOP PRINCIPAL
+-- RENDER LOOP
 -- ==========================================
 RunService.RenderStepped:Connect(function()
     -- FOV Circle
@@ -911,20 +1098,22 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Color = Settings.ESPColor
     end
     
-    -- AIMBOT & TRIGGER
+    -- Spinbot
+    if Settings.Spinbot and LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LPlayer.Character.HumanoidRootPart.CFrame = LPlayer.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+    end
+    
+    -- Aimbot
     local target = GetTarget()
     if target and Settings.AimbotEnabled then
         local pos = target.Position
         
         if Settings.SilentAim then
-            -- Mira instantânea
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
         else
-            -- Mira suave
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, pos), Settings.Smoothness)
         end
         
-        -- TriggerBot
         if Settings.TriggerBot then
             local mouse = LPlayer:GetMouse()
             if mouse.Target and mouse.Target:IsDescendantOf(target.Parent) then
@@ -935,7 +1124,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
         
-        -- TP Behind
         if Settings.TPBehind and target.Parent then
             local root = target.Parent:FindFirstChild("HumanoidRootPart")
             if root and LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -963,6 +1151,33 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- Follow Mode (Grudar atrás)
+    if Settings.FollowMode and Settings.FollowTarget and Settings.FollowTarget.Character and Settings.FollowTarget.Character:FindFirstChild("HumanoidRootPart") then
+        if LPlayer.Character and LPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetRoot = Settings.FollowTarget.Character.HumanoidRootPart
+            LPlayer.Character.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 4)
+        end
+    end
+    
+    -- View Mode (Só ver, sem TP)
+    if Settings.ViewMode and Settings.ViewTarget and Settings.ViewTarget.Character and Settings.ViewTarget.Character:FindFirstChild("HumanoidRootPart") then
+        -- Apenas move a câmera
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Settings.ViewTarget.Character.HumanoidRootPart.Position)
+    end
+    
+    -- Fullbright
+    if Settings.Fullbright then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    end
+    
+    -- No Fog
+    if Settings.NoFog then
+        Lighting.FogEnd = 100000
+    end
+    
     -- ESP LOOP
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LPlayer and not PROTECTED_USERS[v.Name] then
@@ -973,7 +1188,7 @@ RunService.RenderStepped:Connect(function()
                 local color = Settings.Friends[v.Name] and Settings.FriendColor or Settings.ESPColor
                 local pos, vis = Camera:WorldToViewportPoint(root.Position)
                 
-                -- Highlight/Box
+                -- Box ESP
                 local hl = char:FindFirstChild("GG_Highlight")
                 if Settings.ESPBox then
                     if not hl then
@@ -988,7 +1203,7 @@ RunService.RenderStepped:Connect(function()
                 end
                 
                 if Drawing then
-                    -- Tracer Line
+                    -- Tracer
                     if not Tracers[v] then Tracers[v] = NewLine() end
                     if Settings.ESPLine and vis and Tracers[v] then
                         Tracers[v].Visible = true
@@ -999,30 +1214,43 @@ RunService.RenderStepped:Connect(function()
                         Tracers[v].Visible = false
                     end
                     
-                    -- Nome/Distância/Arma
+                    -- Text ESP (Nome/Dist/Tool/Health)
                     if not Texts[v] then Texts[v] = NewText() end
-                    if (Settings.ESPName or Settings.ESPDist or Settings.ESPTool) and vis and Texts[v] then
+                    if (Settings.ESPName or Settings.ESPDist or Settings.ESPTool or Settings.ESPHealth) and vis and Texts[v] then
                         local headP = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
                         Texts[v].Visible = true
-                        Texts[v].Color = color
+                        
+                        -- Rainbow health bar
+                        if Settings.ESPHealth then
+                            Texts[v].Color = GetRainbowColor()
+                        else
+                            Texts[v].Color = color
+                        end
+                        
                         Texts[v].Position = Vector2.new(headP.X, headP.Y)
                         
                         local txt = ""
                         if Settings.ESPName then txt = v.Name end
+                        
+                        if Settings.ESPHealth then
+                            local hum = char:FindFirstChildOfClass("Humanoid")
+                            if hum then
+                                local healthPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
+                                txt = txt .. "\n💚 " .. healthPercent .. "% HP"
+                            end
+                        end
+                        
                         if Settings.ESPDist then
                             txt = txt .. "\n[" .. math.floor((root.Position - Camera.CFrame.Position).Magnitude) .. "m]"
                         end
+                        
                         if Settings.ESPTool then
-                            -- Pegar TODAS as tools (na mão + inventário)
                             local tools = {}
-                            
-                            -- Tool equipada (na mão)
                             local equippedTool = char:FindFirstChildOfClass("Tool")
                             if equippedTool then
                                 table.insert(tools, "✓ " .. equippedTool.Name)
                             end
                             
-                            -- Tools no backpack
                             local backpack = v:FindFirstChild("Backpack")
                             if backpack then
                                 for _, tool in pairs(backpack:GetChildren()) do
@@ -1032,13 +1260,13 @@ RunService.RenderStepped:Connect(function()
                                 end
                             end
                             
-                            -- Mostrar todas as tools
                             if #tools > 0 then
                                 txt = txt .. "\n[" .. table.concat(tools, ", ") .. "]"
                             else
                                 txt = txt .. "\n[Sem Armas]"
                             end
                         end
+                        
                         Texts[v].Text = txt
                     elseif Texts[v] then
                         Texts[v].Visible = false
@@ -1081,7 +1309,6 @@ RunService.RenderStepped:Connect(function()
                             end
                         end
                         
-                        -- R15
                         if char:FindFirstChild("UpperTorso") then
                             if char:FindFirstChild("Head") and char:FindFirstChild("UpperTorso") then
                                 Line(char.Head, char.UpperTorso)
@@ -1095,7 +1322,6 @@ RunService.RenderStepped:Connect(function()
                             if char:FindFirstChild("UpperTorso") and char:FindFirstChild("RightUpperArm") then
                                 Line(char.UpperTorso, char.RightUpperArm)
                             end
-                        -- R6
                         elseif char:FindFirstChild("Torso") then
                             if char:FindFirstChild("Head") and char:FindFirstChild("Torso") then
                                 Line(char.Head, char.Torso)
@@ -1136,6 +1362,19 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Anti-AFK
+if Settings.AntiAFK then
+    spawn(function()
+        while wait(300) do
+            if Settings.AntiAFK then
+                VirtualInputManager:SendKeyEvent(true, "W", false, game)
+                wait(0.1)
+                VirtualInputManager:SendKeyEvent(false, "W", false, game)
+            end
+        end
+    end)
+end
+
 -- ==========================================
 -- MENSAGEM DE BOAS-VINDAS
 -- ==========================================
@@ -1174,7 +1413,7 @@ WelcomeText.ZIndex = 101
 if PROTECTED_USERS[LPlayer.Name] then
     WelcomeText.Text = "🔥 Seja Bem-Vindo\nGTA SCRIPTS DE BOA! 🔥\n\n👑 DONO: " .. LPlayer.Name .. " 👑"
 else
-    WelcomeText.Text = "🔥 Seja Bem-Vindo 🔥\n\n" .. LPlayer.Name .. "\n\nAo GTA Scripts Hub ULTIMATE!"
+    WelcomeText.Text = "🔥 Seja Bem-Vindo 🔥\n\n" .. LPlayer.Name .. "\n\nAo GTA Scripts Hub V3 ULTIMATE!"
 end
 
 WelcomeFrame.Size = UDim2.new(0, 0, 0, 0)
@@ -1187,11 +1426,12 @@ TweenService:Create(WelcomeFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum
 wait(0.3)
 WelcomeFrame:Destroy()
 
-print("✅ GTA Scripts Hub ULTIMATE carregado com sucesso!")
-print("🔥 By: gta (gtasa244adm17)")
-
--- Carregar configurações salvas automaticamente
+-- Carregar config automaticamente
 spawn(function()
     wait(1)
     LoadSettings()
 end)
+
+print("✅ GTA Scripts Hub V3 ULTIMATE carregado!")
+print("🔥 By: gta (gtasa244adm17)")
+print("📁 Saves: " .. saveFolder)
