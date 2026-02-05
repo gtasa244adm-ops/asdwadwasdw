@@ -19,7 +19,7 @@ local IsMobile = UserInputService.TouchEnabled
 -- KEY SYSTEM
 -- ==========================================
 local KEY_ENABLED = true -- MUDE PARA false PARA DESABILITAR A KEY
-local CORRECT_KEY = "gg_xiter_menu_seu_jogo_suas_regras" -- MUDE A KEY AQUI
+local CORRECT_KEY = "gg_xiter_menu" -- MUDE A KEY AQUI
 local keyValidated = false
 
 if KEY_ENABLED then
