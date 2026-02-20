@@ -1,0 +1,1374 @@
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║           🎭 EMOTE WHEEL — Força Emotes                  ║
+    ║                                                          ║
+    ║  • Emotes forçados via Animator (100% funcional)         ║
+    ║  • Só adicione IDs no TABS — nomes automáticos           ║
+    ║  • Abas ◀ ▶ · EmoteWalk · Speed · Favoritos             ║
+    ║  • 🚶 Animações de movimento customizáveis               ║
+    ║    (walk · run · idle · jump · fall · climb · swim)      ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
+
+if _G.CEW_Active then return end
+_G.CEW_Active = true
+
+-- ════════════════════════════════════════════════════════════
+--  🔧 SÓ COLOQUE OS IDs AQUI
+--     id = 0 → slot vazio
+-- ════════════════════════════════════════════════════════════
+local TABS = {
+    {
+        tabName = "fun 1",
+        ids = {
+            135253857502047, -- slot 1
+            113343388033794, -- slot 2
+            126780665379004, -- slot 3
+            83762809572535,  -- slot 4
+            76580366945676,  -- slot 5
+            103185886875021,               -- slot 6
+            126899447275562,               -- slot 7
+            133418516499878,               -- slot 8
+        },
+    },
+    {
+        tabName = "Aba 2",
+        ids = {
+            0, -- slot 1
+            0, -- slot 2
+            0, -- slot 3
+            0, -- slot 4
+            0, -- slot 5
+            0, -- slot 6
+            0, -- slot 7
+            0, -- slot 8
+        },
+    },
+    {
+        tabName = "Aba 3",
+        ids = {
+            0, 0, 0, 0, 0, 0, 0, 0,
+        },
+    },
+}
+
+-- ════════════════════════════════════════════════════════════
+--  🎒 PACKS DE ANIMAÇÕES DE MOVIMENTO
+--     BtnChange (ícone de troca, barra inferior esquerda)
+--     cicla entre os packs e aplica automaticamente no char.
+--
+--     id = 0  →  mantém a animação padrão do Roblox
+--
+--  Para adicionar um novo pack: copie um bloco { } e troque os IDs.
+-- ════════════════════════════════════════════════════════════
+local ANIM_PACKS = {
+    {
+        packName = "Pack 1",
+        walk     = 136382802509224,
+        run      = 70636286183373,
+        idle1    = 137768794429758,
+        idle2    = 137768794429758,
+        jump     = 131814798893284,
+        fall     = 133466390878060,
+        climb    = 113087712986783,
+        swim     = 104459561932509,
+        swimidle = 101420028871528,
+    },
+    {
+        packName = "Pack 2",
+        walk     = 122150855457006,
+        run      = 18537384940,
+        idle1    = 110211186840347,
+        idle2    = 114191137265065,
+        jump     = 109996626521204,
+        fall     = 18537367238,
+        climb    = 18537363391,
+        swim     = 134530128383903,
+        swimidle = 94922130551805,
+    },
+    -- Copie e cole o bloco abaixo para adicionar mais packs:
+    --[[
+    {
+        packName = "Pack 2",
+        walk     = 0,
+        run      = 0,
+        idle1    = 0,
+        idle2    = 0,
+        jump     = 0,
+        fall     = 0,
+        climb    = 0,
+        swim     = 0,
+        swimidle = 0,
+    },
+    --]]
+}
+
+local currentAnimPackIdx = 0  -- 0 = Normal (animações padrão do Roblox)
+
+local function getAnimPack()
+    if currentAnimPackIdx == 0 then return nil end
+    return ANIM_PACKS[currentAnimPackIdx]
+end
+
+-- ════════════════════════════════════════════════════════════
+--  SERVICES
+-- ════════════════════════════════════════════════════════════
+local Players            = game:GetService("Players")
+local TweenService       = game:GetService("TweenService")
+local RunService         = game:GetService("RunService")
+local UserInputService   = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local HttpService        = game:GetService("HttpService")
+local GuiService         = game:GetService("GuiService")
+local CoreGui            = game:GetService("CoreGui")
+local StarterGui         = game:GetService("StarterGui")
+
+-- ════════════════════════════════════════════════════════════
+--  PLAYER
+-- ════════════════════════════════════════════════════════════
+local Player    = Players.LocalPlayer
+local character = Player.Character or Player.CharacterAdded:Wait()
+local humanoid  = character:WaitForChild("Humanoid")
+
+-- ════════════════════════════════════════════════════════════
+--  ESTADO
+-- ════════════════════════════════════════════════════════════
+local currentTab        = 1
+local totalTabs         = #TABS
+local isGUICreated      = false
+local emotesWalkEnabled = false
+local speedEmoteEnabled = false
+local favoriteEnabled   = false
+local currentEmoteTrack = nil
+local favClickConns     = {}
+local isMonitorFav      = false
+local favoriteEmotes    = {}
+local favFile           = "CEW_Fav.json"
+local speedFile         = "CEW_Speed.json"
+
+getgenv().autoReloadEnabled = getgenv().autoReloadEnabled or false
+getgenv().lastPlayedEmoteId = getgenv().lastPlayedEmoteId or nil
+
+-- Imagens dos botões
+local IMG_OFF     = "rbxassetid://71408678974152"
+local IMG_ON      = "rbxassetid://106798555684020"
+local IMG_FAV_ON  = "rbxassetid://97307461910825"
+local IMG_FAV_OFF = "rbxassetid://124025954365505"
+local IMG_SPEED   = "rbxassetid://116056570415896"
+local IMG_CHANGE  = "rbxassetid://13285615740"
+local IMG_RELOAD  = "rbxassetid://127493377027615"
+
+-- Refs GUI
+local TopBar, TabLabel, TabCounter, PackLabel
+local BtnLeft, BtnRight, UnderBar
+local BtnWalk, BtnFav, BtnSpeed, BtnChange, BtnReload, SpeedBox
+
+-- ════════════════════════════════════════════════════════════
+--  CACHE DE NOMES
+-- ════════════════════════════════════════════════════════════
+local nameCache = {}
+
+local function getName(id)
+    if not id or id == 0 then return nil end
+    if nameCache[id] then return nameCache[id] end
+    local ok, info = pcall(function()
+        return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
+    end)
+    if ok and info and info.Name and info.Name ~= "" then
+        nameCache[id] = info.Name
+    else
+        nameCache[id] = "Emote " .. tostring(id)
+    end
+    return nameCache[id]
+end
+
+-- Pré-carrega nomes em paralelo
+task.spawn(function()
+    for _, tab in ipairs(TABS) do
+        for _, id in ipairs(tab.ids) do
+            if id and id ~= 0 then
+                task.spawn(function() getName(id) end)
+            end
+        end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════
+--  NOTIFICAÇÕES
+-- ════════════════════════════════════════════════════════════
+local NotifGui = Instance.new("ScreenGui")
+NotifGui.Name           = "CEW_N"
+NotifGui.Parent         = CoreGui
+NotifGui.ResetOnSpawn   = false
+NotifGui.IgnoreGuiInset = true
+
+local activeNotifs = {}
+local NW, NH, NG, NS = 300, 72, 10, 0.45
+
+local function Notify(opts)
+    task.spawn(function()
+        local T = opts.Title or "Emote Wheel"
+        local C = opts.Content or ""
+        local D = opts.Duration or 4
+
+        local f = Instance.new("Frame")
+        f.Size = UDim2.new(0,NW,0,NH)
+        f.BackgroundColor3 = Color3.fromRGB(14,14,14)
+        f.BackgroundTransparency = 0.04
+        f.BorderSizePixel = 0; f.Parent = NotifGui
+
+        local c1 = Instance.new("UICorner"); c1.CornerRadius=UDim.new(0,10); c1.Parent=f
+        local st = Instance.new("UIStroke"); st.Color=Color3.fromRGB(95,95,220); st.Thickness=1.5; st.Transparency=0.1; st.Parent=f
+
+        local ac = Instance.new("Frame")
+        ac.Size=UDim2.new(0,4,1,-4); ac.Position=UDim2.new(0,0,0,2)
+        ac.BackgroundColor3=Color3.fromRGB(100,100,255); ac.BorderSizePixel=0; ac.Parent=f
+        local ac2=Instance.new("UICorner"); ac2.CornerRadius=UDim.new(0,8); ac2.Parent=ac
+
+        local sh=Instance.new("Frame")
+        sh.Size=UDim2.new(1,8,1,8); sh.Position=UDim2.new(0,-4,0,-4)
+        sh.BackgroundColor3=Color3.fromRGB(0,0,0); sh.BackgroundTransparency=0.8
+        sh.BorderSizePixel=0; sh.ZIndex=f.ZIndex-1; sh.Parent=f
+        local sh2=Instance.new("UICorner"); sh2.CornerRadius=UDim.new(0,10); sh2.Parent=sh
+
+        local tl=Instance.new("TextLabel")
+        tl.Size=UDim2.new(1,-18,0,26); tl.Position=UDim2.new(0,14,0,7)
+        tl.BackgroundTransparency=1; tl.Text=T
+        tl.TextColor3=Color3.fromRGB(255,255,255); tl.TextSize=15
+        tl.TextXAlignment=Enum.TextXAlignment.Left; tl.Font=Enum.Font.GothamBold; tl.Parent=f
+
+        local cl=Instance.new("TextLabel")
+        cl.Size=UDim2.new(1,-18,0,22); cl.Position=UDim2.new(0,14,0,37)
+        cl.BackgroundTransparency=1; cl.Text=C
+        cl.TextColor3=Color3.fromRGB(185,185,185); cl.TextSize=13
+        cl.TextXAlignment=Enum.TextXAlignment.Left; cl.Font=Enum.Font.Gotham; cl.Parent=f
+
+        local yPos = 50 + #activeNotifs*(NH+NG)
+        f.Position = UDim2.new(1,NW+20,0,yPos)
+        table.insert(activeNotifs,f)
+
+        local function repos()
+            for i,n in ipairs(activeNotifs) do
+                if n and n.Parent then
+                    TweenService:Create(n,TweenInfo.new(NS,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
+                        {Position=UDim2.new(1,-NW-20,0,50+(i-1)*(NH+NG))}):Play()
+                end
+            end
+        end
+        TweenService:Create(f,TweenInfo.new(NS,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
+            {Position=UDim2.new(1,-NW-20,0,yPos)}):Play()
+        repos()
+
+        task.wait(D)
+        for i,n in ipairs(activeNotifs) do if n==f then table.remove(activeNotifs,i) break end end
+        TweenService:Create(f,TweenInfo.new(NS,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
+            {Position=UDim2.new(1,NW+20,0,f.Position.Y.Offset)}):Play()
+        task.wait(NS+0.05)
+        if f and f.Parent then f:Destroy() end
+        repos()
+    end)
+end
+
+getgenv().Notify = Notify
+
+-- ════════════════════════════════════════════════════════════
+--  HELPERS — RODA NATIVA
+-- ════════════════════════════════════════════════════════════
+local function getWheel()
+    local ok, w = pcall(function()
+        return CoreGui.RobloxGui.EmotesMenu.Children.Main.EmotesWheel
+    end)
+    return ok and w or nil
+end
+
+local function wheelExists() return getWheel() ~= nil end
+
+local function getOverlay()
+    local ok, r = pcall(function()
+        return CoreGui.RobloxGui.EmotesMenu.Children.Main.EmotesWheel.Back.Background.BackgroundCircleOverlay
+    end)
+    return ok and r or nil
+end
+
+local function urlToId(s)
+    return (s:gsub("http://www%.roblox%.com/asset/%?id=",""):gsub("rbxassetid://",""))
+end
+
+local function getFront()
+    local ok, r = pcall(function()
+        return CoreGui.RobloxGui.EmotesMenu.Children.Main.EmotesWheel.Front.EmotesButtons
+    end)
+    return ok and r or nil
+end
+
+-- ════════════════════════════════════════════════════════════
+--  PARAR EMOTES
+-- ════════════════════════════════════════════════════════════
+local function stopCurrentEmote()
+    if currentEmoteTrack then
+        pcall(function() currentEmoteTrack:Stop() end)
+        currentEmoteTrack = nil
+    end
+end
+
+local function stopAllEmotes()
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    for _, t in ipairs(hum:GetPlayingAnimationTracks()) do
+        pcall(function() t:Stop() end)
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  ✅ FORÇA PLAY DO EMOTE (método direto pelo Animator)
+--
+--  Não depende do sistema nativo de emotes do Roblox.
+--  Carrega a animação diretamente e toca com prioridade máxima.
+-- ════════════════════════════════════════════════════════════
+local function forcePlayEmote(emoteId, looped)
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    local animator = hum:FindFirstChild("Animator")
+    if not animator then return end
+
+    stopCurrentEmote()
+    stopAllEmotes()
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. tostring(emoteId)
+
+    local ok, track = pcall(function()
+        return animator:LoadAnimation(anim)
+    end)
+    if not ok or not track then
+        Notify({ Title = "❌ Erro", Content = "Falha ao carregar emote ID: " .. tostring(emoteId), Duration = 3 })
+        return
+    end
+
+    currentEmoteTrack          = track
+    currentEmoteTrack.Priority = Enum.AnimationPriority.Action4
+    currentEmoteTrack.Looped   = looped ~= false
+
+    currentEmoteTrack:Play()
+
+    if speedEmoteEnabled and SpeedBox then
+        currentEmoteTrack:AdjustSpeed(tonumber(SpeedBox.Text) or 1)
+    end
+
+    getgenv().lastPlayedEmoteId = emoteId
+end
+
+-- ════════════════════════════════════════════════════════════
+--  CONEXÕES DE CLIQUE NOS BOTÕES DA RODA (força o play)
+--
+--  Substitui o comportamento nativo: quando o usuário clica
+--  em um slot da roda, o script intercepta e força o emote.
+-- ════════════════════════════════════════════════════════════
+local emoteSlotConns = {}
+local lastInjectedIds = {}
+
+local function connectEmoteSlots()
+    -- desconecta anteriores
+    for _, c in pairs(emoteSlotConns) do
+        if c then pcall(function() c:Disconnect() end) end
+    end
+    emoteSlotConns = {}
+
+    local front = getFront()
+    if not front then return end
+
+    local tab = TABS[currentTab]
+    local slotIndex = 0
+
+    -- os filhos ImageLabel dentro de EmotesButtons correspondem aos slots
+    local buttons = {}
+    for _, child in pairs(front:GetChildren()) do
+        if child:IsA("ImageLabel") then
+            table.insert(buttons, child)
+        end
+    end
+
+    -- ordena por LayoutOrder ou Name para garantir a ordem correta
+    table.sort(buttons, function(a, b)
+        return (a.LayoutOrder or 0) < (b.LayoutOrder or 0)
+    end)
+
+    for i, imgLabel in ipairs(buttons) do
+        local id = tab.ids[i]
+        if id and id ~= 0 then
+            -- cria ou reutiliza TextButton invisível por cima
+            local btn = imgLabel:FindFirstChild("CEW_Slot")
+            if not btn then
+                btn = Instance.new("TextButton")
+                btn.Name = "CEW_Slot"
+                btn.Size = UDim2.new(1,0,1,0)
+                btn.BackgroundTransparency = 1
+                btn.Text = ""
+                btn.ZIndex = imgLabel.ZIndex + 10
+                btn.Parent = imgLabel
+            end
+
+            local capturedId = id
+            local conn = btn.MouseButton1Click:Connect(function()
+                if favoriteEnabled then return end -- deixa o modo favorito agir
+                forcePlayEmote(capturedId)
+                Notify({
+                    Title   = "🎭 " .. (nameCache[capturedId] or "Emote"),
+                    Content = "Emote iniciado!",
+                    Duration = 2
+                })
+            end)
+            table.insert(emoteSlotConns, conn)
+        else
+            -- slot vazio: remove botão se existir
+            local btn = imgLabel:FindFirstChild("CEW_Slot")
+            if btn then btn:Destroy() end
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  INJETAR ABA ATUAL NA RODA (SetEmotes + SetEquippedEmotes)
+-- ════════════════════════════════════════════════════════════
+local function injectCurrentTab()
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    if hum.RigType == Enum.HumanoidRigType.R6 then
+        Notify({ Title = "⚠️", Content = "R6 não suportado. Use R15.", Duration = 5 })
+        return
+    end
+
+    local hd = hum:FindFirstChildOfClass("HumanoidDescription")
+    if not hd then hd = hum.HumanoidDescription end
+    if not hd then return end
+
+    local tab        = TABS[currentTab]
+    local emoteTable = {}
+    local equipped   = {}
+
+    for i = 1, math.min(#tab.ids, 8) do
+        local id = tab.ids[i]
+        if id and id ~= 0 then
+            local name = nameCache[id] or ("Emote" .. i)
+            -- garante unicidade
+            local finalName = name
+            local count = 0
+            while emoteTable[finalName] do
+                count += 1
+                finalName = name .. "_" .. count
+            end
+            emoteTable[finalName] = { id }
+            equipped[i]           = finalName
+        end
+    end
+
+    pcall(function()
+        hd:SetEmotes(emoteTable)
+        hd:SetEquippedEmotes(equipped)
+    end)
+
+    -- salva os IDs que foram injetados
+    lastInjectedIds = {}
+    for i, id in ipairs(tab.ids) do
+        lastInjectedIds[i] = id
+    end
+
+    -- conecta cliques diretos nos slots após breve delay
+    task.delay(0.3, connectEmoteSlots)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  DISPLAY DAS ABAS
+-- ════════════════════════════════════════════════════════════
+local function updateTabDisplay()
+    local name = TABS[currentTab].tabName or ("Aba " .. currentTab)
+    if TabLabel   and TabLabel.Parent   then TabLabel.Text   = name end
+    if TabCounter and TabCounter.Parent then
+        TabCounter.Text = currentTab .. " / " .. totalTabs
+    end
+end
+
+local function goToTab(idx)
+    if idx < 1 then idx = totalTabs elseif idx > totalTabs then idx = 1 end
+    currentTab = idx
+    stopCurrentEmote()
+    updateTabDisplay()
+    injectCurrentTab()
+    Notify({
+        Title   = "🎭 " .. (TABS[idx].tabName or "Aba " .. idx),
+        Content = "Aba " .. idx .. " de " .. totalTabs,
+        Duration = 2
+    })
+end
+
+-- ════════════════════════════════════════════════════════════
+--  EmoteWalk — mantém emote enquanto anda
+-- ════════════════════════════════════════════════════════════
+local function isGivenAnim(holder, id)
+    for _, a in holder:GetChildren() do
+        if a:IsA("Animation") and urlToId(a.AnimationId) == id then return true end
+    end
+    return false
+end
+
+local function isDancing(char, track)
+    local id = urlToId(track.Animation.AnimationId)
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return true end
+    for _, h in animate:GetChildren() do
+        if h:IsA("StringValue") and isGivenAnim(h, id) then return false end
+    end
+    return true
+end
+
+-- ════════════════════════════════════════════════════════════
+--  🚶 APLICA / RESETA ANIMAÇÕES DE MOVIMENTO
+-- ════════════════════════════════════════════════════════════
+
+-- Guarda os IDs originais do Animate para poder resetar depois
+local originalMoveAnims = {}
+
+-- Mapeamento: chave MOVE_ANIMS → {stringValue no Animate, índice do filho Animation}
+local ANIM_MAP = {
+    walk     = { slot = "walk",     idx = 1 },
+    run      = { slot = "run",      idx = 1 },
+    idle1    = { slot = "idle",     idx = 1 },
+    idle2    = { slot = "idle",     idx = 2 },
+    jump     = { slot = "jump",     idx = 1 },
+    fall     = { slot = "fall",     idx = 1 },
+    climb    = { slot = "climb",    idx = 1 },
+    swim     = { slot = "swim",     idx = 1 },
+    swimidle = { slot = "swimidle", idx = 1 },
+}
+
+local function applyMoveAnims(char)
+    local animate = char:WaitForChild("Animate", 5)
+    if not animate then
+        Notify({ Title = "⚠️ Anims", Content = "Script Animate não encontrado.", Duration = 4 })
+        return
+    end
+
+    local pack = getAnimPack()
+    if not pack then return end
+
+    -- guarda originais e aplica novos IDs do pack atual
+    for key, info in pairs(ANIM_MAP) do
+        local newId = pack[key]
+        local slotVal = animate:FindFirstChild(info.slot)
+        if slotVal then
+            local anims = {}
+            for _, a in ipairs(slotVal:GetChildren()) do
+                if a:IsA("Animation") then
+                    table.insert(anims, a)
+                end
+            end
+            table.sort(anims, function(a, b) return a.Name < b.Name end)
+
+            local target = anims[info.idx]
+            if target then
+                local origKey = info.slot .. "_" .. info.idx
+                if not originalMoveAnims[origKey] then
+                    originalMoveAnims[origKey] = target.AnimationId
+                end
+                if newId and newId ~= 0 then
+                    target.AnimationId = "rbxassetid://" .. tostring(newId)
+                else
+                    if originalMoveAnims[origKey] then
+                        target.AnimationId = originalMoveAnims[origKey]
+                    end
+                end
+            end
+        end
+    end
+
+    Notify({ Title = "🎒 " .. pack.packName, Content = "Animações aplicadas! (" .. currentAnimPackIdx .. "/" .. #ANIM_PACKS .. ")", Duration = 3 })
+end
+
+local function resetMoveAnims(char)
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return end
+
+    for key, info in pairs(ANIM_MAP) do
+        local slotVal = animate:FindFirstChild(info.slot)
+        if slotVal then
+            local anims = {}
+            for _, a in ipairs(slotVal:GetChildren()) do
+                if a:IsA("Animation") then table.insert(anims, a) end
+            end
+            table.sort(anims, function(a, b) return a.Name < b.Name end)
+
+            local target = anims[info.idx]
+            local origKey = info.slot .. "_" .. info.idx
+            if target and originalMoveAnims[origKey] then
+                target.AnimationId = originalMoveAnims[origKey]
+            end
+        end
+    end
+
+    Notify({ Title = "🔄 Anims resetadas", Content = "Animações de movimento restauradas.", Duration = 3 })
+end
+
+-- ════════════════════════════════════════════════════════════
+--  onCharacterAdded
+-- ════════════════════════════════════════════════════════════
+local function onCharacterAdded(char)
+    stopCurrentEmote()
+    local hum      = char:WaitForChild("Humanoid")
+    local animator = hum:WaitForChild("Animator")
+
+    -- Reaplica o pack ativo no respawn (se não for Normal)
+    if currentAnimPackIdx ~= 0 then
+        task.delay(0.5, function() applyMoveAnims(char) end)
+    end
+
+    if getgenv().autoReloadEnabled and getgenv().lastPlayedEmoteId then
+        task.wait(0.8)
+        forcePlayEmote(getgenv().lastPlayedEmoteId)
+        Notify({ Title = "🔄 Auto Reload", Content = "Último emote reaplicado.", Duration = 3 })
+    end
+
+    -- Hookeia o AnimationPlayed para EmoteWalk/SpeedEmote via sistema nativo
+    animator.AnimationPlayed:Connect(function(animTrack)
+        if not isDancing(char, animTrack) then return end
+        local emoteId = urlToId(animTrack.Animation.AnimationId)
+        getgenv().lastPlayedEmoteId = emoteId
+
+        if emotesWalkEnabled or speedEmoteEnabled then
+            if currentEmoteTrack then
+                if urlToId(currentEmoteTrack.Animation.AnimationId) == emoteId then return end
+                stopCurrentEmote()
+            end
+            -- reaplica via força
+            forcePlayEmote(tonumber(emoteId))
+        end
+    end)
+
+    -- ════════════════════════════════════════════════════════
+    --  WALK DETECTION — controla animação enquanto anda
+    --
+    --  • Freezer ON  + andando → mantém o emote tocando
+    --  • Freezer OFF + andando → para o emote
+    -- ════════════════════════════════════════════════════════
+    local walkHeartbeat
+    walkHeartbeat = RunService.Heartbeat:Connect(function()
+        -- desconecta se o char mudou
+        if Player.Character ~= char then
+            walkHeartbeat:Disconnect()
+            return
+        end
+
+        local h = char:FindFirstChild("Humanoid")
+        if not h then return end
+
+        local isMoving = h.MoveDirection.Magnitude > 0
+
+        if isMoving then
+            if emotesWalkEnabled then
+                -- Freezer ATIVO: garante que o emote continua tocando
+                if currentEmoteTrack then
+                    if not currentEmoteTrack.IsPlaying then
+                        pcall(function() currentEmoteTrack:Play() end)
+                        if speedEmoteEnabled and SpeedBox then
+                            pcall(function()
+                                currentEmoteTrack:AdjustSpeed(tonumber(SpeedBox.Text) or 1)
+                            end)
+                        end
+                    end
+                end
+            else
+                -- Freezer DESATIVO: para o emote ao andar
+                if currentEmoteTrack and currentEmoteTrack.IsPlaying then
+                    stopCurrentEmote()
+                end
+            end
+        end
+    end)
+
+    hum.Died:Connect(function()
+        -- para o heartbeat ao morrer
+        if walkHeartbeat then
+            walkHeartbeat:Disconnect()
+            walkHeartbeat = nil
+        end
+        emotesWalkEnabled = false
+        speedEmoteEnabled = false
+        favoriteEnabled   = false
+        currentEmoteTrack = nil
+        stopAllEmotes()
+        stopCurrentEmote()
+        if BtnWalk and BtnWalk.Parent then BtnWalk.Image = IMG_OFF end
+        if BtnFav  and BtnFav.Parent  then BtnFav.Image  = IMG_FAV_OFF end
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  FAVORITOS
+-- ════════════════════════════════════════════════════════════
+local function saveFavorites()
+    if writefile then writefile(favFile, HttpService:JSONEncode(favoriteEmotes)) end
+end
+
+local function loadFavorites()
+    if readfile and isfile and isfile(favFile) then
+        local ok, r = pcall(function() return HttpService:JSONDecode(readfile(favFile)) end)
+        if ok and r then favoriteEmotes = r end
+    end
+end
+
+local function isInFav(id)
+    for _, f in pairs(favoriteEmotes) do if f.id == tostring(id) then return true end end
+    return false
+end
+
+local function extractId(url)
+    return url:match("Asset&id=(%d+)")
+end
+
+local function updateFavIcon(imgLbl, id)
+    local fi = imgLbl:FindFirstChild("FavIcon")
+    if not fi then
+        fi = Instance.new("ImageLabel")
+        fi.Name = "FavIcon"; fi.Size = UDim2.new(0.3,0,0.3,0)
+        fi.Position = UDim2.new(0.7,0,0,0)
+        fi.BackgroundTransparency = 1; fi.ZIndex = imgLbl.ZIndex + 5
+        fi.ScaleType = Enum.ScaleType.Fit; fi.Parent = imgLbl
+    end
+    fi.Image = isInFav(id) and IMG_FAV_ON or IMG_FAV_OFF
+end
+
+local function stopFavDetection()
+    isMonitorFav = false
+    for _, c in pairs(favClickConns) do if c then pcall(function() c:Disconnect() end) end end
+    favClickConns = {}
+    local front = getFront()
+    if front then
+        for _, ch in pairs(front:GetChildren()) do
+            if ch:IsA("ImageLabel") then
+                local cd = ch:FindFirstChild("FavCD"); if cd then cd:Destroy() end
+                local fi = ch:FindFirstChild("FavIcon"); if fi then fi:Destroy() end
+            end
+        end
+    end
+end
+
+local function setupFavDetection()
+    if isMonitorFav then return end
+    isMonitorFav = true
+    task.spawn(function()
+        while favoriteEnabled do
+            local front = getFront()
+            if front then
+                for _, c in pairs(favClickConns) do if c then pcall(function() c:Disconnect() end) end end
+                favClickConns = {}
+                for _, ch in pairs(front:GetChildren()) do
+                    if ch:IsA("ImageLabel") and ch.Image ~= "" then
+                        local assetId = extractId(ch.Image)
+                        if assetId then
+                            updateFavIcon(ch, assetId)
+                            local cd = ch:FindFirstChild("FavCD")
+                            if not cd then
+                                cd = Instance.new("TextButton")
+                                cd.Name = "FavCD"; cd.Size = UDim2.new(1,0,1,0)
+                                cd.BackgroundTransparency = 1; cd.Text = ""
+                                cd.ZIndex = ch.ZIndex + 8; cd.Parent = ch
+                            end
+                            local conn = cd.MouseButton1Click:Connect(function()
+                                if not favoriteEnabled then return end
+                                local numId = tonumber(assetId)
+                                local eName = (numId and nameCache[numId]) or ("ID:"..assetId)
+                                local found, fi2 = false, 0
+                                for i, fv in pairs(favoriteEmotes) do
+                                    if fv.id == assetId then found=true; fi2=i; break end
+                                end
+                                if found then
+                                    table.remove(favoriteEmotes, fi2)
+                                    Notify({ Title="⭐ Favorito", Content='🗑️ "'..eName..'" removido', Duration=3 })
+                                else
+                                    table.insert(favoriteEmotes, { id=assetId, name=eName })
+                                    Notify({ Title="⭐ Favorito", Content='✅ "'..eName..'" adicionado', Duration=3 })
+                                end
+                                saveFavorites()
+                                updateFavIcon(ch, assetId)
+                            end)
+                            table.insert(favClickConns, conn)
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+        stopFavDetection()
+        isMonitorFav = false
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  SPEED CONFIG
+-- ════════════════════════════════════════════════════════════
+local function saveSpeed()
+    if writefile then
+        writefile(speedFile, HttpService:JSONEncode({
+            Enabled = speedEmoteEnabled,
+            Speed   = tonumber(SpeedBox and SpeedBox.Text) or 1
+        }))
+    end
+end
+
+local function loadSpeed()
+    if readfile and isfile and isfile(speedFile) then
+        local ok, r = pcall(function() return HttpService:JSONDecode(readfile(speedFile)) end)
+        if ok and r then
+            speedEmoteEnabled = r.Enabled or false
+            if SpeedBox and SpeedBox.Parent then
+                SpeedBox.Text    = tostring(r.Speed or 1)
+                SpeedBox.Visible = speedEmoteEnabled
+            end
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  TOGGLE BOTÕES
+-- ════════════════════════════════════════════════════════════
+local function toggleWalk()
+    emotesWalkEnabled = not emotesWalkEnabled
+    if BtnWalk and BtnWalk.Parent then BtnWalk.Image = emotesWalkEnabled and IMG_ON or IMG_OFF end
+    stopCurrentEmote()
+    Notify({ Title="🎭 Emote Freeze", Content=emotesWalkEnabled and "🔒 ON" or "🔓 OFF", Duration=3 })
+end
+
+local function toggleSpeed()
+    speedEmoteEnabled = not speedEmoteEnabled
+    if SpeedBox and SpeedBox.Parent then SpeedBox.Visible = speedEmoteEnabled end
+    stopCurrentEmote()
+    saveSpeed()
+    Notify({ Title="⚡ Speed Emote", Content=speedEmoteEnabled and "⚡ ON" or "⚡ OFF", Duration=3 })
+end
+
+local function toggleFav()
+    favoriteEnabled = not favoriteEnabled
+    if BtnFav and BtnFav.Parent then BtnFav.Image = favoriteEnabled and IMG_FAV_ON or IMG_FAV_OFF end
+    if favoriteEnabled then
+        Notify({ Title="⭐ Favoritos", Content="ON — clique nos emotes", Duration=4 })
+        setupFavDetection()
+    else
+        Notify({ Title="⭐ Favoritos", Content="OFF", Duration=3 })
+        stopFavDetection()
+    end
+end
+
+local function toggleAutoReload()
+    getgenv().autoReloadEnabled = not getgenv().autoReloadEnabled
+    Notify({ Title="🔄 Auto Reload",
+        Content=getgenv().autoReloadEnabled and "ON" or "OFF", Duration=3 })
+end
+
+-- ════════════════════════════════════════════════════════════
+--  🎒 RODA SECRETA DE PACKS (sobrepõe a roda, BtnChange abre/fecha)
+--     • As setas ◀ ▶ não chegam aqui
+--     • Cada botão = um pack completo (aplica tudo de uma vez)
+--     • Botão central = 🔄 Normal (reseta para anim padrão)
+-- ════════════════════════════════════════════════════════════
+local packOverlayFrame = nil
+local packOverlayOpen  = false
+
+local function refreshPackLabel()
+    if PackLabel and PackLabel.Parent then
+        if currentAnimPackIdx == 0 then
+            PackLabel.Text = "🎒 Normal"
+        else
+            PackLabel.Text = "🎒 " .. getAnimPack().packName
+        end
+    end
+end
+
+local function applyPackByIdx(idx)
+    if idx == 0 then
+        -- reseta para animações originais do Roblox
+        originalMoveAnims = {}
+        local char = Player.Character
+        if char then
+            resetMoveAnims(char)
+        end
+        currentAnimPackIdx = 0
+    else
+        currentAnimPackIdx = idx
+        originalMoveAnims  = {}
+        local char = Player.Character
+        if char then
+            applyMoveAnims(char)
+        end
+    end
+    refreshPackLabel()
+end
+
+local function buildPackOverlay(wheel)
+    local old = wheel:FindFirstChild("CEW_PackOverlay")
+    if old then old:Destroy() end
+
+    -- Frame de fundo cobre a roda inteira
+    local frame = Instance.new("Frame")
+    frame.Name                   = "CEW_PackOverlay"
+    frame.Size                   = UDim2.new(1, 0, 1, 0)
+    frame.Position               = UDim2.new(0, 0, 0, 0)
+    frame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0.35
+    frame.BorderSizePixel        = 0
+    frame.ZIndex                 = 20
+    frame.Visible                = false
+    frame.Parent                 = wheel
+    local fC = Instance.new("UICorner"); fC.CornerRadius = UDim.new(1, 0); fC.Parent = frame
+
+    -- Label central "Escolha o Pack"
+    local centerBg = Instance.new("Frame")
+    centerBg.Size                   = UDim2.new(0.34, 0, 0.34, 0)
+    centerBg.Position               = UDim2.new(0.33, 0, 0.33, 0)
+    centerBg.BackgroundColor3       = Color3.fromRGB(12, 12, 28)
+    centerBg.BackgroundTransparency = 0.08
+    centerBg.BorderSizePixel        = 0
+    centerBg.ZIndex                 = 21
+    centerBg.Parent                 = frame
+    local cbC = Instance.new("UICorner"); cbC.CornerRadius = UDim.new(1, 0); cbC.Parent = centerBg
+    local cbS = Instance.new("UIStroke"); cbS.Color = Color3.fromRGB(100, 100, 255); cbS.Thickness = 1.5; cbS.Parent = centerBg
+
+    -- Botão central = Normal (reseta)
+    local centerBtn = Instance.new("TextButton")
+    centerBtn.Size                   = UDim2.new(1, 0, 1, 0)
+    centerBtn.BackgroundTransparency = 1
+    centerBtn.Text                   = "🔄\nNormal"
+    centerBtn.TextColor3             = Color3.fromRGB(220, 220, 255)
+    centerBtn.TextScaled             = true
+    centerBtn.Font                   = Enum.Font.GothamBold
+    centerBtn.ZIndex                 = 22
+    centerBtn.AutoButtonColor        = false
+    centerBtn.Parent                 = centerBg
+    centerBtn.MouseButton1Click:Connect(function()
+        applyPackByIdx(0)
+        packOverlayOpen  = false
+        frame.Visible    = false
+        Notify({ Title = "🔄 Normal", Content = "Animações padrão restauradas!", Duration = 3 })
+    end)
+
+    -- Botões dos packs em círculo
+    -- distribui N packs igualmente em volta, começando do topo (-90°)
+    local total = #ANIM_PACKS
+    local r  = 0.33  -- raio (relativo ao frame 1x1)
+    local bW = 0.22
+    local bH = 0.14
+
+    for i, pack in ipairs(ANIM_PACKS) do
+        local angle = -90 + (360 / total) * (i - 1)
+        local rad   = math.rad(angle)
+        local cx    = 0.5 + r * math.cos(rad) - bW / 2
+        local cy    = 0.5 + r * math.sin(rad) - bH / 2
+
+        local isActive = (currentAnimPackIdx == i)
+
+        local btn = Instance.new("TextButton")
+        btn.Size                   = UDim2.new(bW, 0, bH, 0)
+        btn.Position               = UDim2.new(cx, 0, cy, 0)
+        btn.BackgroundColor3       = isActive and Color3.fromRGB(30,70,130) or Color3.fromRGB(12,12,30)
+        btn.BackgroundTransparency = 0.08
+        btn.BorderSizePixel        = 0
+        btn.Text                   = pack.packName
+        btn.TextColor3             = Color3.fromRGB(230, 230, 255)
+        btn.TextScaled             = true
+        btn.Font                   = Enum.Font.GothamBold
+        btn.ZIndex                 = 22
+        btn.AutoButtonColor        = false
+        btn.Parent                 = frame
+        local bC = Instance.new("UICorner"); bC.CornerRadius = UDim.new(0, 10); bC.Parent = btn
+        local bS = Instance.new("UIStroke")
+        bS.Color     = isActive and Color3.fromRGB(100, 160, 255) or Color3.fromRGB(70, 70, 180)
+        bS.Thickness = 1.3
+        bS.Parent    = btn
+
+        btn.MouseEnter:Connect(function()
+            if currentAnimPackIdx ~= i then btn.BackgroundColor3 = Color3.fromRGB(28,28,60) end
+        end)
+        btn.MouseLeave:Connect(function()
+            if currentAnimPackIdx ~= i then btn.BackgroundColor3 = Color3.fromRGB(12,12,30) end
+        end)
+
+        local capturedIdx = i
+        btn.MouseButton1Click:Connect(function()
+            applyPackByIdx(capturedIdx)
+            packOverlayOpen = false
+            frame.Visible   = false
+        end)
+    end
+
+    -- Botão ✕ fechar (canto superior direito)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size                   = UDim2.new(0.10, 0, 0.10, 0)
+    closeBtn.Position               = UDim2.new(0.79, 0, 0.06, 0)
+    closeBtn.BackgroundColor3       = Color3.fromRGB(170, 25, 25)
+    closeBtn.BackgroundTransparency = 0.15
+    closeBtn.BorderSizePixel        = 0
+    closeBtn.Text                   = "✕"
+    closeBtn.TextColor3             = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled             = true
+    closeBtn.Font                   = Enum.Font.GothamBold
+    closeBtn.ZIndex                 = 23
+    closeBtn.Parent                 = frame
+    local clC = Instance.new("UICorner"); clC.CornerRadius = UDim.new(1, 0); clC.Parent = closeBtn
+    closeBtn.MouseButton1Click:Connect(function()
+        packOverlayOpen = false
+        frame.Visible   = false
+    end)
+
+    packOverlayFrame = frame
+    return frame
+end
+
+local function togglePackOverlay()
+    local wheel = getWheel()
+    if not wheel then return end
+
+    -- reconstrói sempre para refletir o pack ativo atual
+    buildPackOverlay(wheel)
+
+    packOverlayOpen = not packOverlayOpen
+    if packOverlayFrame then
+        packOverlayFrame.Visible = packOverlayOpen
+    end
+    if packOverlayOpen then
+        Notify({ Title = "🎒 Packs", Content = "Escolha o pack ou toque em Normal", Duration = 3 })
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  COOLDOWN
+-- ════════════════════════════════════════════════════════════
+local cds = {}
+local function safe(name, fn)
+    local now = tick()
+    if not cds[name] or (now - cds[name]) > 0.15 then cds[name]=now; fn() end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  SYNC DE COR
+-- ════════════════════════════════════════════════════════════
+local function syncColors()
+    local ov = getOverlay()
+    if not ov then return end
+    local col = ov.BackgroundColor3
+    local tr  = ov.BackgroundTransparency
+    local function sf(f) if f and f.Parent then f.BackgroundColor3=col; f.BackgroundTransparency=tr end end
+    local function st(l) if l and l.Parent then l.TextColor3=col; l.TextTransparency=tr end end
+    sf(TopBar); sf(UnderBar)
+    sf(BtnWalk); sf(BtnFav); sf(BtnSpeed); sf(BtnChange); sf(BtnReload); sf(SpeedBox)
+    st(TabLabel); st(TabCounter)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  HELPER makeBtn
+-- ════════════════════════════════════════════════════════════
+local function makeBtn(parent, name, pos, size, img, zIdx)
+    local b = Instance.new("ImageButton")
+    b.Name = name; b.Parent = parent
+    b.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    b.BackgroundTransparency = 0.4; b.BorderSizePixel = 0
+    b.Position = pos; b.Size = size; b.Image = img; b.ZIndex = zIdx or 2
+    local c = Instance.new("UICorner"); c.CornerRadius=UDim.new(0,10); c.Parent=b
+    return b
+end
+
+-- ════════════════════════════════════════════════════════════
+--  CRIAÇÃO DA GUI
+-- ════════════════════════════════════════════════════════════
+local function createGUI()
+    local wheel = getWheel()
+    if not wheel then return false end
+
+    for _, n in ipairs({"CEW_Top","CEW_Under","BtnWalk","BtnFav","BtnSpeed","SpeedBox","BtnChange","BtnReload","CEW_PackOverlay"}) do
+        local old = wheel:FindFirstChild(n); if old then old:Destroy() end
+    end
+
+    -- ── BARRA SUPERIOR ──────────────────────────────────────
+    TopBar = Instance.new("Frame")
+    TopBar.Name="CEW_Top"; TopBar.Parent=wheel
+    TopBar.BackgroundColor3=Color3.fromRGB(0,0,0)
+    TopBar.BackgroundTransparency=0.4; TopBar.BorderSizePixel=0
+    TopBar.Position=UDim2.new(0.127,0,-0.115,0)
+    TopBar.Size=UDim2.new(0.745,0,0.097,0)
+    local c1=Instance.new("UICorner"); c1.CornerRadius=UDim.new(0,20); c1.Parent=TopBar
+
+    local lay=Instance.new("UIListLayout")
+    lay.FillDirection=Enum.FillDirection.Horizontal
+    lay.HorizontalAlignment=Enum.HorizontalAlignment.Center
+    lay.VerticalAlignment=Enum.VerticalAlignment.Center
+    lay.SortOrder=Enum.SortOrder.LayoutOrder; lay.Padding=UDim.new(0,4); lay.Parent=TopBar
+
+    BtnLeft=Instance.new("TextButton")
+    BtnLeft.LayoutOrder=1; BtnLeft.Size=UDim2.new(0,22,0.8,0)
+    BtnLeft.BackgroundTransparency=1; BtnLeft.Text="◀"
+    BtnLeft.TextColor3=Color3.fromRGB(255,255,255); BtnLeft.TextTransparency=0.2
+    BtnLeft.TextScaled=true; BtnLeft.Font=Enum.Font.GothamBold
+    BtnLeft.AutoButtonColor=false; BtnLeft.Parent=TopBar
+
+    TabLabel=Instance.new("TextLabel")
+    TabLabel.LayoutOrder=2; TabLabel.Size=UDim2.new(0.65,0,1,0)
+    TabLabel.BackgroundTransparency=1
+    TabLabel.Text=TABS[currentTab].tabName or "Aba 1"
+    TabLabel.TextColor3=Color3.fromRGB(255,255,255); TabLabel.TextTransparency=0.2
+    TabLabel.TextScaled=true; TabLabel.Font=Enum.Font.GothamBold
+    TabLabel.TextXAlignment=Enum.TextXAlignment.Center; TabLabel.Parent=TopBar
+
+    BtnRight=Instance.new("TextButton")
+    BtnRight.LayoutOrder=3; BtnRight.Size=UDim2.new(0,22,0.8,0)
+    BtnRight.BackgroundTransparency=1; BtnRight.Text="▶"
+    BtnRight.TextColor3=Color3.fromRGB(255,255,255); BtnRight.TextTransparency=0.2
+    BtnRight.TextScaled=true; BtnRight.Font=Enum.Font.GothamBold
+    BtnRight.AutoButtonColor=false; BtnRight.Parent=TopBar
+
+    -- ── BARRA INFERIOR ───────────────────────────────────────
+    UnderBar=Instance.new("Frame")
+    UnderBar.Name="CEW_Under"; UnderBar.Parent=wheel
+    UnderBar.BackgroundColor3=Color3.fromRGB(0,0,0)
+    UnderBar.BackgroundTransparency=0.4; UnderBar.BorderSizePixel=0
+    UnderBar.Position=UDim2.new(0.127,0,1.018,0)
+    UnderBar.Size=UDim2.new(0.745,0,0.1,0)
+    local c2=Instance.new("UICorner"); c2.CornerRadius=UDim.new(0,14); c2.Parent=UnderBar
+
+    -- linha de cima: contador de abas de emote
+    TabCounter=Instance.new("TextLabel")
+    TabCounter.Size=UDim2.new(1,0,0.5,0)
+    TabCounter.BackgroundTransparency=1
+    TabCounter.Text=currentTab.." / "..totalTabs
+    TabCounter.TextColor3=Color3.fromRGB(255,255,255); TabCounter.TextTransparency=0.2
+    TabCounter.TextScaled=true; TabCounter.Font=Enum.Font.GothamBold; TabCounter.Parent=UnderBar
+    TabCounter.TextYAlignment=Enum.TextYAlignment.Top
+
+    -- linha de baixo: pack de anim ativo
+    PackLabel=Instance.new("TextLabel")
+    PackLabel.Size=UDim2.new(1,0,0.5,0)
+    PackLabel.Position=UDim2.new(0,0,0.5,0)
+    PackLabel.BackgroundTransparency=1
+    PackLabel.Text="🎒 Normal"
+    PackLabel.TextColor3=Color3.fromRGB(200,200,255); PackLabel.TextTransparency=0.2
+    PackLabel.TextScaled=true; PackLabel.Font=Enum.Font.Gotham
+    PackLabel.TextYAlignment=Enum.TextYAlignment.Bottom
+    PackLabel.Parent=UnderBar
+
+    -- ── BOTÕES LATERAIS ──────────────────────────────────────
+    local S = UDim2.new(0.0875,0,0.0875,0)
+
+    BtnWalk  = makeBtn(wheel,"BtnWalk",  UDim2.new(0.889,0,-0.1075,0), S, IMG_OFF)
+    BtnFav   = makeBtn(wheel,"BtnFav",   UDim2.new(0.019,0,-0.108,0),  S, IMG_FAV_OFF)
+    BtnSpeed = makeBtn(wheel,"BtnSpeed", UDim2.new(0.889,0,0,0),       S, IMG_SPEED, 2)
+
+    SpeedBox=Instance.new("TextBox")
+    SpeedBox.Name="SpeedBox"; SpeedBox.Parent=wheel
+    SpeedBox.BackgroundColor3=Color3.fromRGB(0,0,0)
+    SpeedBox.BackgroundTransparency=0.4; SpeedBox.BorderSizePixel=0
+    SpeedBox.Position=UDim2.new(0.019,0,-0.0005,0); SpeedBox.Size=S
+    SpeedBox.Visible=false; SpeedBox.ZIndex=2
+    SpeedBox.Font=Enum.Font.GothamBold; SpeedBox.PlaceholderText="Vel"
+    SpeedBox.PlaceholderColor3=Color3.fromRGB(178,178,178)
+    SpeedBox.Text="1"; SpeedBox.TextColor3=Color3.fromRGB(255,255,255)
+    SpeedBox.TextScaled=true; SpeedBox.TextWrapped=true
+    local sbC=Instance.new("UICorner"); sbC.CornerRadius=UDim.new(0,10); sbC.Parent=SpeedBox
+    SpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+        SpeedBox.Text=SpeedBox.Text:gsub("[^%d.]","")
+    end)
+    SpeedBox.FocusLost:Connect(function()
+        saveSpeed()
+        if currentEmoteTrack and currentEmoteTrack.IsPlaying and speedEmoteEnabled then
+            currentEmoteTrack:AdjustSpeed(tonumber(SpeedBox.Text) or 1)
+        end
+    end)
+
+    BtnChange = makeBtn(wheel,"BtnChange", UDim2.new(0.019,0,1.021,0), UDim2.new(0.087,0,0.087,0), IMG_CHANGE, 3)
+    BtnReload = makeBtn(wheel,"BtnReload", UDim2.new(0.889,0,1.021,0), UDim2.new(0.087,0,0.087,0), IMG_RELOAD, 3)
+
+    -- Constrói o overlay de packs (invisível por padrão)
+    packOverlayOpen = false
+    buildPackOverlay(wheel)
+
+    -- ── EVENTOS ──────────────────────────────────────────────
+    BtnLeft.MouseButton1Click:Connect(function()   safe("TL",function() goToTab(currentTab-1) end) end)
+    BtnRight.MouseButton1Click:Connect(function()  safe("TR",function() goToTab(currentTab+1) end) end)
+    BtnWalk.MouseButton1Click:Connect(function()   safe("W", toggleWalk) end)
+    BtnFav.MouseButton1Click:Connect(function()    safe("F", toggleFav) end)
+    BtnSpeed.MouseButton1Click:Connect(function()  safe("S", toggleSpeed) end)
+    BtnChange.MouseButton1Click:Connect(function() safe("C", togglePackOverlay) end)
+    BtnReload.MouseButton1Click:Connect(function() safe("R", toggleAutoReload) end)
+
+    loadSpeed()
+    isGUICreated = true
+    return true
+end
+
+-- ════════════════════════════════════════════════════════════
+--  RECRIAR SE DESTRUÍDA
+-- ════════════════════════════════════════════════════════════
+local function recreateIfNeeded()
+    local wheel = getWheel()
+    if not wheel then return end
+    if not wheel:FindFirstChild("CEW_Top") or not wheel:FindFirstChild("BtnWalk") then
+        isGUICreated = false
+        if createGUI() then
+            updateTabDisplay()
+            injectCurrentTab()
+            loadSpeed()
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  MONITORAR ABERTURA DA RODA → RE-INJETA E RECONECTA SLOTS
+-- ════════════════════════════════════════════════════════════
+local wasWheelVisible = false
+RunService.Heartbeat:Connect(function()
+    local wheel = getWheel()
+    if not wheel then return end
+    local isVisible = wheel.Visible
+    if isVisible and not wasWheelVisible then
+        -- roda acabou de abrir: garante injeção e conexões
+        injectCurrentTab()
+        task.delay(0.35, connectEmoteSlots)
+    end
+    wasWheelVisible = isVisible
+end)
+
+-- ════════════════════════════════════════════════════════════
+--  R6 — mensagem
+-- ════════════════════════════════════════════════════════════
+RunService.Heartbeat:Connect(function()
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or hum.RigType ~= Enum.HumanoidRigType.R6 then return end
+    local ok, em = pcall(function() return CoreGui.RobloxGui.EmotesMenu.Children.ErrorMessage end)
+    if ok and em and em.Visible then
+        local et = em:FindFirstChild("ErrorText")
+        if et then et.Text = "R6 não suportado! Use R15." end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════
+--  HEARTBEAT — GUI + cores
+-- ════════════════════════════════════════════════════════════
+RunService.Heartbeat:Connect(function()
+    if not isGUICreated then recreateIfNeeded() else syncColors() end
+end)
+
+-- ════════════════════════════════════════════════════════════
+--  RESPAWN
+-- ════════════════════════════════════════════════════════════
+Player.CharacterAdded:Connect(function(newChar)
+    character         = newChar
+    humanoid          = newChar:WaitForChild("Humanoid")
+    isGUICreated      = false
+    emotesWalkEnabled = false
+    speedEmoteEnabled = false
+    favoriteEnabled   = false
+    currentEmoteTrack = nil
+    onCharacterAdded(newChar)
+
+    task.wait(1.5)
+    while not wheelExists() do task.wait(0.2) end
+    if createGUI() then updateTabDisplay(); injectCurrentTab(); loadSpeed() end
+end)
+
+-- ════════════════════════════════════════════════════════════
+--  MOBILE
+-- ════════════════════════════════════════════════════════════
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+    local mGui=Instance.new("ScreenGui")
+    mGui.Name="CEW_Mobile"; mGui.Parent=CoreGui
+    mGui.IgnoreGuiInset=true; mGui.ResetOnSpawn=false
+
+    local mBtn=Instance.new("TextButton")
+    mBtn.Size=UDim2.new(0,56,0,56); mBtn.Position=UDim2.new(0.5,-28,0,30)
+    mBtn.BackgroundColor3=Color3.fromRGB(0,0,0); mBtn.BackgroundTransparency=0.4
+    mBtn.Text=""; mBtn.BorderSizePixel=0; mBtn.ZIndex=99999
+    mBtn.AutoButtonColor=false; mBtn.Parent=mGui
+    local mC=Instance.new("UICorner"); mC.CornerRadius=UDim.new(1,0); mC.Parent=mBtn
+    local mS=Instance.new("UIStroke"); mS.Color=Color3.fromRGB(100,100,255); mS.Thickness=2; mS.Parent=mBtn
+    local mI=Instance.new("ImageLabel")
+    mI.BackgroundTransparency=1; mI.Position=UDim2.new(0.1,0,0.1,0)
+    mI.Size=UDim2.new(0.8,0,0.8,0); mI.Image="rbxassetid://85867483111516"; mI.Parent=mBtn
+
+    local drag,ds,sp=false,nil,nil
+    mBtn.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.Touch then
+            drag=true; ds=i.Position; sp=mBtn.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and i.UserInputType==Enum.UserInputType.Touch then
+            local d=i.Position-ds
+            mBtn.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+    mBtn.MouseButton1Click:Connect(function()
+        local ok,w=pcall(function() return CoreGui.RobloxGui.EmotesMenu.Children.Main.EmotesWheel end)
+        GuiService:SetEmotesMenuOpen(ok and w and not w.Visible or true)
+    end)
+    RunService.Heartbeat:Connect(function()
+        local ok,w=pcall(function() return CoreGui.RobloxGui.EmotesMenu.Children.Main.EmotesWheel end)
+        mBtn.Visible=not(ok and w and w.Visible)
+    end)
+    Notify({ Title="📱 Mobile", Content="Botão adicionado — arraste para mover", Duration=5 })
+end
+
+if UserInputService.KeyboardEnabled then
+    Notify({ Title="💻 PC", Content='Pressione "." para abrir a roda', Duration=5 })
+end
+
+-- ════════════════════════════════════════════════════════════
+--  INICIALIZAÇÃO
+-- ════════════════════════════════════════════════════════════
+task.spawn(function()
+    Notify({ Title="🎭 Emote Wheel", Content="Iniciando...", Duration=3 })
+
+    StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, true)
+
+    while not wheelExists() do task.wait(0.2) end
+
+    loadFavorites()
+    onCharacterAdded(character)
+
+    if createGUI() then
+        updateTabDisplay()
+        injectCurrentTab()
+        -- re-injeta depois dos nomes carregarem
+        task.delay(4, function()
+            injectCurrentTab()
+            task.delay(0.4, connectEmoteSlots)
+            Notify({
+                Title   = "✅ Pronto",
+                Content = totalTabs.." abas carregadas · clique nos emotes da roda",
+                Duration = 5
+            })
+        end)
+    end
+end)
+
+-- Loop de monitoramento
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        local rGui=CoreGui:FindFirstChild("RobloxGui")
+        local eMenu=rGui and rGui:FindFirstChild("EmotesMenu")
+        if not eMenu then
+            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, true)
+        else
+            local w; pcall(function() w=eMenu.Children.Main.EmotesWheel end)
+            if w and (not w:FindFirstChild("CEW_Top") or not w:FindFirstChild("BtnWalk")) then
+                isGUICreated=false
+                if createGUI() then updateTabDisplay(); injectCurrentTab(); loadSpeed() end
+            end
+        end
+    end
+end)
