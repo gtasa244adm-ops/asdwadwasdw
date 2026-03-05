@@ -522,26 +522,30 @@ local function UpdateESP()
         if State.ESP_EnemyOnly and not IsEnemy(player) then shouldShow = false end
         if State.ESP_AllyOnly and IsEnemy(player) then shouldShow = false end
 
-        -- Highlight (3D box)
-        obj.Highlight.Adornee = (State.ESP_Box3D and shouldShow) and player.Character or nil
-        if State.ESP_Box3D and shouldShow then
-            local isVis = IsVisible(player)
-            if State.ESP_WallColor then
-                obj.Highlight.FillColor = isVis and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-                obj.Highlight.OutlineColor = isVis and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-            elseif State.ESP_Team then
-                local tc = player.TeamColor
-                obj.Highlight.FillColor = tc and tc.Color or Color3.fromRGB(200, 200, 200)
-                obj.Highlight.OutlineColor = tc and tc.Color or Color3.fromRGB(200, 200, 200)
-            else
-                obj.Highlight.FillColor = Color3.fromRGB(100, 60, 220)
-                obj.Highlight.OutlineColor = Color3.fromRGB(130, 80, 255)
+        -- Highlight (3D box) — pcall evita "trying to set locked parent"
+        pcall(function()
+            obj.Highlight.Adornee = (State.ESP_Box3D and shouldShow) and player.Character or nil
+            if State.ESP_Box3D and shouldShow then
+                local isVis = IsVisible(player)
+                if State.ESP_WallColor then
+                    obj.Highlight.FillColor = isVis and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+                    obj.Highlight.OutlineColor = isVis and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+                elseif State.ESP_Team then
+                    local tc = player.TeamColor
+                    obj.Highlight.FillColor = tc and tc.Color or Color3.fromRGB(200, 200, 200)
+                    obj.Highlight.OutlineColor = tc and tc.Color or Color3.fromRGB(200, 200, 200)
+                else
+                    obj.Highlight.FillColor = Color3.fromRGB(100, 60, 220)
+                    obj.Highlight.OutlineColor = Color3.fromRGB(130, 80, 255)
+                end
             end
-        end
+        end)
 
-        -- Billboard text
-        obj.Billboard.Adornee = hrp
-        obj.Billboard.Enabled = anyESPOn and shouldShow
+        -- Billboard text — pcall evita "trying to set locked parent"
+        pcall(function()
+            obj.Billboard.Adornee = hrp
+            obj.Billboard.Enabled = anyESPOn and shouldShow
+        end)
 
         if anyESPOn and shouldShow then
             -- Name
@@ -666,11 +670,11 @@ local function UpdateESP()
                 hb.Color3 = Color3.fromRGB(255, 100, 0)
                 hb.LineThickness = 0.04
                 hb.SurfaceTransparency = 0.85
-                hb.Adornee = hrp
+                pcall(function() hb.Adornee = hrp end)
                 hb.Parent = PlayerGui
                 obj.HitboxSel = hb
             else
-                obj.HitboxSel.Adornee = hrp
+                pcall(function() obj.HitboxSel.Adornee = hrp end)
             end
         else
             if obj.HitboxSel then obj.HitboxSel:Destroy() obj.HitboxSel = nil end
@@ -739,7 +743,7 @@ local function UpdateESP()
                         hl.FillColor = Color3.fromRGB(255, 200, 0)
                         hl.OutlineColor = Color3.fromRGB(255, 200, 0)
                         hl.FillTransparency = 0.7
-                        hl.Adornee = v
+                        pcall(function() hl.Adornee = v end)
                         hl.Parent = PlayerGui
                         local bb = Instance.new("BillboardGui")
                         bb.StudsOffset = Vector3.new(0, 3, 0)
@@ -1701,6 +1705,10 @@ local function SaveSettings()
     end)
 end
 local function LoadSettings()
+pcall(function()
+    local v=LocalPlayer:GetAttribute("GGSave_AutoSave")
+    if v~=nil then AutoSaveEnabled=v end
+end)
     pcall(function()
         for _,k in ipairs(SaveKeys) do
             local attr="GGSave_"..k
@@ -1710,7 +1718,7 @@ local function LoadSettings()
     end)
 end
 LoadSettings()
-task.spawn(function() while true do task.wait(10) SaveSettings() end end)
+task.spawn(function() while true do task.wait(10) if AutoSaveEnabled then SaveSettings() end end end)
 
 -- ── Notify ──
 Notify = function(title,msg,duration)
@@ -1774,12 +1782,32 @@ local function ExecButtonAction(key)
         local p=GetAdminSelectedPlayer() if p then local hrp=GetHRP(p)
             if hrp then hrp.Anchored=false Misc.AdminFrozenPlayers[p.Name]=nil Notify("Admin 🔥",p.Name.." descongelado",2) end end
     elseif key=="_Kill" then
-        local p=GetAdminSelectedPlayer() if p then local hum=GetHumanoid(p)
-            if hum then pcall(function() hum.Health=0 end) end Notify("Admin 💀",p.Name.." morto",2) end
+        local p=GetAdminSelectedPlayer() if p then
+            -- Tenta setar health=0 (funciona em alguns jogos)
+            pcall(function() local hum=GetHumanoid(p) if hum then hum.Health=0 end end)
+            -- Fallback: fling ultra agressivo (causa morte por dano de queda)
+            local tHRP=GetHRP(p)
+            if tHRP then
+                local bv=Instance.new("BodyVelocity")
+                bv.Velocity=Vector3.new(math.random(-9999,9999),99999,math.random(-9999,9999))
+                bv.MaxForce=Vector3.new(math.huge,math.huge,math.huge)
+                bv.Parent=tHRP
+                game:GetService("Debris"):AddItem(bv,0.08)
+            end
+            Notify("Admin 💀",p.Name.." kill enviado",2)
+        end
     elseif key=="_KillAll" then
         for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then
-            local hum=GetHumanoid(p) if hum then pcall(function() hum.Health=0 end) end
-        end end Notify("Admin 💀","Todos mortos",2)
+            pcall(function() local hum=GetHumanoid(p) if hum then hum.Health=0 end end)
+            local tHRP=GetHRP(p)
+            if tHRP then
+                local bv=Instance.new("BodyVelocity")
+                bv.Velocity=Vector3.new(math.random(-9999,9999),99999,math.random(-9999,9999))
+                bv.MaxForce=Vector3.new(math.huge,math.huge,math.huge)
+                bv.Parent=tHRP
+                game:GetService("Debris"):AddItem(bv,0.08)
+            end
+        end end Notify("Admin 💀","Kill All enviado",2)
     elseif key=="_AdminTP" then
         local p=GetAdminSelectedPlayer() if p then
             local myHRP=GetHRP(LocalPlayer) local tHRP=GetHRP(p)
@@ -1914,6 +1942,7 @@ end
 -- ── Estado do menu ──
 local MS = {
     stack={}; cur=nil; idx=1; scroll=0; open=false; root=nil; inputOpen=false; kbOpen=false;
+    kbBindChangeMod=false; kbBindChangeTrg=false;
 }
 
 -- ── API Menus ──
@@ -2093,6 +2122,7 @@ MkL({
 },KBFrame)
 
 local CFG = {OpenKeys={Enum.KeyCode.F2}; OpenKeyStr="F2"; MenuSide="Esquerda"; RGBSpeed=3;}
+local AutoSaveEnabled=true
 
 local function KeyName(kc) local s=tostring(kc) return s:match("KeyCode%.(.+)") or tostring(kc) end
 local function ComboStr(keys) local p={} for _,k in ipairs(keys) do table.insert(p,KeyName(k)) end return table.concat(p,"+") end
@@ -2149,6 +2179,96 @@ KBOverlay.InputBegan:Connect(function(inp)
     if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
         CloseKBCapture() end
 end)
+
+
+-- ════════════════════════════════════════════════════════
+--  KEY BIND SYSTEM
+-- ════════════════════════════════════════════════════════
+
+local KeyBindMap      = {}      -- item_ref → {key=KeyCode, str="X"}
+local KBCaptureMode   = false   -- esperando tecla para bind
+local KBCaptureItem   = nil     -- item alvo do bind
+local KBActivateMod   = Enum.KeyCode.LeftAlt  -- modificador padrão (Alt)
+local KBActivateTrg   = Enum.KeyCode.X         -- trigger padrão (X)
+local KBActivateStr   = "Alt+X"               -- exibição
+
+local function KBGetId(it)
+    return tostring(it)
+end
+
+local function KBSave()
+    pcall(function()
+        local t={}
+        for it,bind in pairs(KeyBindMap) do t[KBGetId(it)]=bind.str end
+        LocalPlayer:SetAttribute("GGKBinds", game:GetService("HttpService"):JSONEncode(t))
+    end)
+end
+
+local function KBStart(item)
+    if not item then return end
+    if item.tipo=="display" or item.tipo=="submenu" then
+        Notify("Key Bind","Esse item não pode ter bind",2) return
+    end
+    KBCaptureMode=true; KBCaptureItem=item
+    Notify("🔑 Key Bind","Pressione a tecla para:\n"..item.label.."\n(ESC = cancelar)",5)
+end
+
+local function KBCancel()
+    KBCaptureMode=false; KBCaptureItem=nil
+    Notify("Key Bind","Cancelado",1)
+end
+
+local function KBConfirm(kc)
+    if not KBCaptureItem then KBCaptureMode=false return end
+    local keyStr=tostring(kc):match("KeyCode%.(.+)") or tostring(kc)
+    KeyBindMap[KBCaptureItem]={key=kc, str=keyStr}
+    Notify("🔑 Bind OK",KBCaptureItem.label.." → "..keyStr,3)
+    KBCaptureMode=false; KBCaptureItem=nil
+    KBSave()
+    if MS.open then pcall(Render) end
+end
+
+local function KBExecItem(item)
+    if not item then return end
+    if item.tipo=="toggle" then
+        item.enabled=not item.enabled
+        if item.togCb then pcall(item.togCb,item.enabled) end
+        if MS.open then pcall(Render) end
+    elseif item.tipo=="action" and not item.isPlayerSel then
+        if item.cb then pcall(item.cb) end
+    end
+end
+
+local function KBRemove(item)
+    KeyBindMap[item]=nil; KBSave()
+    Notify("Key Bind","Bind removido",2)
+    if MS.open then pcall(Render) end
+end
+
+-- ── Build KeyBind submenu display items ──
+local mKBList = NewMenu("Binds Ativos","Lista de binds atuais")
+local kbListItems = {}
+
+local function RefreshKBList()
+    -- Clear existing items
+    mKBList.items = {}
+    kbListItems = {}
+    local count=0
+    for item, bind in pairs(KeyBindMap) do
+        count=count+1
+        local capItem=item; local capBind=bind
+        local disp=AddItem(mKBList,"action",item.label.." → "..bind.str,function()
+            KBRemove(capItem)
+            RefreshKBList()
+        end)
+        table.insert(kbListItems, disp)
+    end
+    if count==0 then
+        AddItem(mKBList,"display","(Nenhum bind ativo)")
+    end
+    AddItem(mKBList,"display","── Clique p/ remover ──")
+end
+RefreshKBList()
 
 -- ════════════════════════════════════════════════════════
 --  BOTÃO GG
@@ -2333,7 +2453,9 @@ function Render()
             R.lbl.TextSize=(it.tipo=="display") and (IsMobile and 12 or 10) or (IsMobile and 15 or 12)
             R.lbl.Size=(it.tipo=="slider") and UDim2.new(1,-110,0.56,0) or UDim2.new(1,-110,1,0)
             if it.tipo=="toggle" then
-                R.rgt.Text=it.enabled and "● ON" or "● OFF"
+                local bd=KeyBindMap and KeyBindMap[it]
+                local bstr=bd and (" 🔑"..bd.str) or ""
+                R.rgt.Text=(it.enabled and "● ON" or "● OFF")..bstr
                 R.rgt.TextColor3=sel and P.SelTxt or (it.enabled and P.TglOn or P.TglOff)
                 R.sbg.Visible=false
             elseif it.tipo=="submenu" then
@@ -2347,7 +2469,9 @@ function Render()
                 R.sfil.BackgroundColor3=sel and P.White or RGBC; R.sdot.BackgroundColor3=sel and P.White or RGBC
                 R.sdot.Position=UDim2.new(math.clamp(pct,0,1),0,0.5,0)
             elseif it.tipo=="action" or it.isText then
-                local val=it.isText and ((it.textVal or ""):sub(1,12)..(((it.textVal or ""):len()>12) and ".." or "")) or "[ OK ]"
+                local bd=KeyBindMap and KeyBindMap[it]
+                local bstr=bd and ("🔑"..bd.str) or "[ OK ]"
+                local val=it.isText and ((it.textVal or ""):sub(1,10)..(((it.textVal or ""):len()>10) and ".." or "")) or bstr
                 R.rgt.Text=val; R.rgt.TextColor3=sel and P.SelTxt or P.TxtDim; R.sbg.Visible=false
             else R.rgt.Text="" R.sbg.Visible=false end
         else R.r.Visible=false R.sbg.Visible=false end
@@ -2387,16 +2511,28 @@ end
 local function NavLeft()
     if MS.inputOpen or MS.kbOpen then return end
     local it=MS.cur and MS.cur.items[MS.idx]; if not it then return end
-    if it.tipo=="slider" then it.val=it.val-it.step if it.slCb then pcall(it.slCb,it.val) end Render()
-    else if #MS.stack>0 then MS.cur=table.remove(MS.stack) MS.idx=1 MS.scroll=0 Refresh() end end
+    if it.tipo=="slider" then
+        it.val=it.val-it.step; if it.slCb then pcall(it.slCb,it.val) end; Render()
+    elseif it.tipo=="toggle" then
+        it.enabled=not it.enabled; if it.togCb then pcall(it.togCb,it.enabled) end; Render()
+    elseif it.isPlayerSel and it.prevCb then
+        pcall(it.prevCb); Render()
+    else
+        if #MS.stack>0 then MS.cur=table.remove(MS.stack); MS.idx=1; MS.scroll=0; Refresh() end
+    end
 end
 local function NavRight()
     if MS.inputOpen or MS.kbOpen then return end
     local it=MS.cur and MS.cur.items[MS.idx]; if not it then return end
-    if it.tipo=="slider" then it.val=it.val+it.step if it.slCb then pcall(it.slCb,it.val) end Render()
+    if it.tipo=="slider" then
+        it.val=it.val+it.step; if it.slCb then pcall(it.slCb,it.val) end; Render()
+    elseif it.tipo=="toggle" then
+        it.enabled=not it.enabled; if it.togCb then pcall(it.togCb,it.enabled) end; Render()
+    elseif it.isPlayerSel and it.cb then
+        pcall(it.cb); Render()
     elseif it.tipo=="submenu" and it.subm then
         table.insert(MS.stack,MS.cur); MS.cur=it.subm; MS.idx=1; MS.scroll=0
-        if MS.cur.items[1] and MS.cur.items[1].tipo=="display" then SkipDisp(1) end Refresh()
+        if MS.cur.items[1] and MS.cur.items[1].tipo=="display" then SkipDisp(1) end; Refresh()
     end
 end
 
@@ -2477,6 +2613,51 @@ local function ComboTriggered(inp)
 end
 
 UserInputService.InputBegan:Connect(function(inp,gpe)
+    -- ── KeyBind capture mode (capture antes de tudo) ──
+    if KBCaptureMode and inp.UserInputType==Enum.UserInputType.Keyboard then
+        local kc=inp.KeyCode
+        if kc==Enum.KeyCode.Escape or kc==Enum.KeyCode.Backspace then KBCancel()
+        elseif kc~=KBActivateMod and kc~=Enum.KeyCode.LeftControl
+            and kc~=Enum.KeyCode.RightControl and kc~=Enum.KeyCode.LeftShift
+            and kc~=Enum.KeyCode.RightShift and kc~=Enum.KeyCode.RightAlt then
+            KBConfirm(kc)
+        end
+        return
+    end
+    -- ── Mudar Mod/Trigger do combo ──
+    if MS.kbBindChangeMod and inp.UserInputType==Enum.UserInputType.Keyboard then
+        local kc=inp.KeyCode
+        KBActivateMod=kc
+        KBActivateStr=( tostring(kc):match("KeyCode%.(.+)") or tostring(kc) ).."+"..
+            ( tostring(KBActivateTrg):match("KeyCode%.(.+)") or tostring(KBActivateTrg) )
+        MS.kbBindChangeMod=false
+        Notify("Key Bind","Mod alterado: "..KBActivateStr,2)
+        if MS.open then pcall(Render) end
+        return
+    end
+    if MS.kbBindChangeTrg and inp.UserInputType==Enum.UserInputType.Keyboard then
+        local kc=inp.KeyCode
+        KBActivateTrg=kc
+        KBActivateStr=( tostring(KBActivateMod):match("KeyCode%.(.+)") or tostring(KBActivateMod) ).."+"..
+            ( tostring(kc):match("KeyCode%.(.+)") or tostring(kc) )
+        MS.kbBindChangeTrg=false
+        Notify("Key Bind","Trigger alterado: "..KBActivateStr,2)
+        if MS.open then pcall(Render) end
+        return
+    end
+    -- ── Ativar bind mode: KBActivateMod+KBActivateTrg ──
+    if inp.UserInputType==Enum.UserInputType.Keyboard then
+        if inp.KeyCode==KBActivateTrg and UserInputService:IsKeyDown(KBActivateMod) then
+            local item=MS.cur and MS.cur.items[MS.idx]
+            if item then KBStart(item) return end
+        end
+    end
+    -- ── Disparar binds ativos (fora do menu) ──
+    if not gpe and inp.UserInputType==Enum.UserInputType.Keyboard then
+        for item,bind in pairs(KeyBindMap) do
+            if inp.KeyCode==bind.key then pcall(KBExecItem,item) end
+        end
+    end
     if gpe then return end
     if _popActive then return end
     if MS.kbOpen then return end
@@ -2562,7 +2743,10 @@ end
 
 -- ════════════════════════════════════════════════════════
 --   DEFINIÇÃO DOS MENUS
+--   (Dentro de função para evitar "Out of local registers >200")
 -- ════════════════════════════════════════════════════════
+
+local function BuildMenus()
 
 -- ── ESP ──
 local mESP = NewMenu("ESP","Visualize jogadores e entidades")
@@ -2690,6 +2874,13 @@ do
         local p=list[math.clamp(SelectedPlayerIndex,1,#list)]
         selIt.label="◄ "..p.Name.." ►" Render()
     end)
+    selIt.isPlayerSel=true
+    selIt.prevCb=function()
+        local list=GetSelectablePlayers() if #list==0 then return end
+        SelectedPlayerIndex=((SelectedPlayerIndex-2)%#list)+1
+        local p=list[math.clamp(SelectedPlayerIndex,1,#list)]
+        selIt.label="◄ "..p.Name.." ►" Render()
+    end
     -- atualiza label do player selecionado
     task.spawn(function()
         while true do task.wait(1)
@@ -2761,6 +2952,13 @@ if IsAdmin then
         local p=list[math.clamp(AdminSelectedIndex,1,#list)]
         adminSelIt.label="◄ "..p.Name.." ►" Render()
     end)
+    adminSelIt.isPlayerSel=true
+    adminSelIt.prevCb=function()
+        local list=GetSelectablePlayers() if #list==0 then return end
+        AdminSelectedIndex=((AdminSelectedIndex-2)%#list)+1
+        local p=list[math.clamp(AdminSelectedIndex,1,#list)]
+        adminSelIt.label="◄ "..p.Name.." ►" Render()
+    end
     task.spawn(function()
         while true do task.wait(1)
             local list=GetSelectablePlayers()
@@ -2811,6 +3009,58 @@ if IsAdmin then
     end
 end
 
+-- ── Save submenu ──
+local mSave = NewMenu("Salvar","Gerenciar configurações salvas")
+do
+    local asIt
+    asIt=AddItem(mSave,"toggle","Auto Save",AutoSaveEnabled,function(v)
+        AutoSaveEnabled=v
+        SaveSettings()
+        pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave",v) end)
+        Notify("Save",v and "Auto Save ATIVADO" or "Auto Save DESATIVADO",2)
+    end)
+    AddItem(mSave,"action","💾 Salvar Agora",function()
+        SaveSettings()
+        pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave",AutoSaveEnabled) end)
+        Notify("💾 Save","Configurações salvas!",2)
+    end)
+    AddItem(mSave,"action","🗑 Deletar Save",function()
+        for _,k in ipairs(SaveKeys) do
+            pcall(function() LocalPlayer:SetAttribute("GGSave_"..k,nil) end)
+        end
+        pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave",nil) end)
+        pcall(function() LocalPlayer:SetAttribute("GGKBinds",nil) end)
+        Notify("🗑 Save","Save deletado!",3)
+    end)
+    AddItem(mSave,"display","Auto Save salva a cada 10s")
+    AddItem(mSave,"display","Deletar: apaga TUDO salvo")
+end
+
+-- ── KeyBind config submenu ──
+local mKBCfg = NewMenu("Key Binds","Atalhos e configurações de bind")
+do
+    local kbDispIt=AddItem(mKBCfg,"display","Combo ativo: "..KBActivateStr)
+    AddItem(mKBCfg,"action","[ Mudar Mod (segurar) ]",function()
+        Notify("Key Bind","Pressione a tecla MODIFICADORA (ex: Alt, Ctrl, Shift)...",4)
+        -- Usar KBCapture para capturar só 1 tecla como mod
+        MS.kbBindChangeMod=true
+    end)
+    AddItem(mKBCfg,"action","[ Mudar Trigger (pressionar) ]",function()
+        Notify("Key Bind","Pressione a tecla TRIGGER (ex: X, Z, F)...",4)
+        MS.kbBindChangeTrg=true
+    end)
+    AddItem(mKBCfg,"action","🗑 Limpar Todos os Binds",function()
+        KeyBindMap={}; KBSave(); RefreshKBList()
+        Notify("Key Bind","Todos os binds limpos!",2)
+    end)
+    AddItem(mKBCfg,"display","─────────────────────────")
+    AddItem(mKBCfg,"display","Alt+X em qualquer item =")
+    AddItem(mKBCfg,"display","atribuir tecla rápida")
+    AddItem(mKBCfg,"display","Seta ◄► em toggle=liga/desliga")
+    AddItem(mKBCfg,"display","Seta ◄► em player=troca player")
+    AddItem(mKBCfg,"submenu","📋 Binds Ativos",mKBList)
+end
+
 -- ── Config ──
 local mCfg = NewMenu("Configurações","Personalizar o trainer")
 do
@@ -2818,7 +3068,9 @@ do
     AddItem(mCfg,"action","[ Definir tecla de abrir ]",function()
         OpenKBCapture(function(keys,str)
             CFG.OpenKeys=keys CFG.OpenKeyStr=str
-            cfgKeyDisp.label="Tecla Abrir:  "..str Render()
+            cfgKeyDisp.label="Tecla Abrir:  "..str
+            SaveSettings()
+            Render()
         end)
     end)
     local cfgSide
@@ -2826,14 +3078,21 @@ do
         CFG.MenuSide=CFG.MenuSide=="Esquerda" and "Direita" or "Esquerda"
         cfgSide.label="◄ Lado: "..CFG.MenuSide.." ►" Render()
     end)
+    cfgSide.isPlayerSel=true
+    cfgSide.prevCb=function()
+        CFG.MenuSide=CFG.MenuSide=="Esquerda" and "Direita" or "Esquerda"
+        cfgSide.label="◄ Lado: "..CFG.MenuSide.." ►" Render()
+    end
     AddItem(mCfg,"slider","Velocidade RGB",3,1,function(v) RGB_SPD=math.max(0.5,math.min(v,20))*0.12 end)
     AddItem(mCfg,"action","Resetar Posição",function()
         local h=Panel.Size.Y.Offset Tw(Panel,{Position=UDim2.new(0,DIM.OpenX,DIM.PY,-(h/2))},0.22,Enum.EasingStyle.Quint)
     end)
-    AddItem(mCfg,"display","────────────────────────────")
-    AddItem(mCfg,"display","Slider ← →  ajusta por step")
-    AddItem(mCfg,"display","Clique slider = digitar valor")
-    AddItem(mCfg,"display","Bksp/ESC = cancelar popup")
+    AddItem(mCfg,"submenu","🔑  Key Binds",mKBCfg)
+    AddItem(mCfg,"submenu","💾  Salvar/Carregar",mSave)
+    AddItem(mCfg,"display","─────────────────────────")
+    AddItem(mCfg,"display","Alt+X = bind tecla ao item")
+    AddItem(mCfg,"display","◄► toggle = liga/desliga")
+    AddItem(mCfg,"display","◄► player = troca player")
 end
 
 -- ── Root ──
@@ -2850,6 +3109,65 @@ if mAdmin then AddItem(root,"submenu","👑  Admin",mAdmin) end
 AddItem(root,"submenu","🔧  Configurações",mCfg)
 AddItem(root,"action","Fechar Menu",CloseMenu)
 SetRoot(root)
+-- ── FOV Arrows (dentro de BuildMenus para não usar locals do main chunk) ──
+local FOVArrowDrawings = {}
+local function UpdateFOVArrows()
+    for _,d in ipairs(FOVArrowDrawings) do pcall(function() d:Remove() end) end
+    FOVArrowDrawings={}
+    if not State.ESP_FOVArrows or not Drawing then return end
+    local viewportCenter=Camera.ViewportSize/2
+    local refPoint=State.AimbotMode=="Center" and viewportCenter or Vector2.new(Mouse.X,Mouse.Y)
+    local maxRange=math.clamp(State.ESP_FOVArrowRange,50,2000)
+    for _,player in ipairs(Players:GetPlayers()) do
+        if player==LocalPlayer then continue end
+        if not IsAlive(player) then continue end
+        local hrp=GetHRP(player) if not hrp then continue end
+        local dist3d=GetDistance(player) if dist3d>maxRange then continue end
+        local screenPos,onScreen=WorldToScreen(hrp.Position)
+        local dir=(screenPos-refPoint) if dir.Magnitude<0.01 then continue end
+        local dirNorm=dir.Unit
+        local fovR=State.AimbotFOV
+        local arrowPos=refPoint+dirNorm*fovR
+        local col
+        if State.AimbotFOVTeamColor then
+            local tc=player.TeamColor col=tc and tc.Color or Color3.fromRGB(255,60,60)
+        elseif dist3d<60  then col=Color3.fromRGB(0,255,80)
+        elseif dist3d<150 then col=Color3.fromRGB(255,200,0)
+        else                   col=Color3.fromRGB(255,50,50) end
+        local arrowLen=14; local perpDir=Vector2.new(-dirNorm.Y,dirNorm.X)
+        local lineD=Drawing.new("Line"); lineD.Visible=true; lineD.From=arrowPos-dirNorm*arrowLen; lineD.To=arrowPos; lineD.Color=col; lineD.Thickness=2; table.insert(FOVArrowDrawings,lineD)
+        local tipL=Drawing.new("Line"); tipL.Visible=true; tipL.From=arrowPos; tipL.To=arrowPos-dirNorm*7+perpDir*5; tipL.Color=col; tipL.Thickness=2; table.insert(FOVArrowDrawings,tipL)
+        local tipR=Drawing.new("Line"); tipR.Visible=true; tipR.From=arrowPos; tipR.To=arrowPos-dirNorm*7-perpDir*5; tipR.Color=col; tipR.Thickness=2; table.insert(FOVArrowDrawings,tipR)
+        local nameD=Drawing.new("Text"); nameD.Visible=true; nameD.Text=player.Name; nameD.Position=arrowPos+Vector2.new(-30,-18); nameD.Color=col; nameD.Size=11; nameD.Font=2; nameD.Outline=true; table.insert(FOVArrowDrawings,nameD)
+    end
+end
+-- ── Aim Shake ──
+local function UpdateAimShake(dt)
+    if not State.AimShake then AimShakeOffset=CFrame.new() return end
+    AimShakeTimer=AimShakeTimer+dt*8
+    local str=math.clamp(State.AimShakeStr/100*0.06,0.001,0.06)
+    local rx=math.sin(AimShakeTimer*3.1)*str; local ry=math.cos(AimShakeTimer*2.7)*str
+    AimShakeOffset=CFrame.Angles(rx,ry,0)
+end
+-- ── Aim Assist ──
+local function UpdateAimAssist()
+    if not State.AimAssist then return end
+    local target=GetAimbotTarget() if not target then return end
+    local bonePos=target.getPos() if not bonePos then return end
+    local str=math.clamp(State.AimAssistStr/100*0.08,0.001,0.08)
+    local targetCF=CFrame.lookAt(Camera.CFrame.Position,bonePos)
+    Camera.CFrame=Camera.CFrame:Lerp(targetCF,str)
+end
+-- ── RenderStepped (dentro de BuildMenus para acessar funções acima como closures) ──
+_G._GG_FPS=60
+RunService.RenderStepped:Connect(function(dt)
+    _G._GG_FPS=math.floor(1/math.max(dt,0.001))
+    UpdateESP(); UpdateAimShake(dt); UpdateAimbot(dt); UpdateAimAssist(); UpdateFOVArrows()
+    if State.Minimap then UpdateMinimap() end
+end)
+
+end -- fim BuildMenus()
+BuildMenus()
 
 -- ════════════════════════════════════════════════════════
 --   RGB LOOP
@@ -2899,65 +3217,6 @@ Players.PlayerAdded:Connect(function(player)
     end
 end)
 
--- ── FOV Arrows ──
-local FOVArrowDrawings = {}
-local function UpdateFOVArrows()
-    for _,d in ipairs(FOVArrowDrawings) do pcall(function() d:Remove() end) end
-    FOVArrowDrawings={}
-    if not State.ESP_FOVArrows or not Drawing then return end
-    local viewportCenter=Camera.ViewportSize/2
-    local refPoint=State.AimbotMode=="Center" and viewportCenter or Vector2.new(Mouse.X,Mouse.Y)
-    local maxRange=math.clamp(State.ESP_FOVArrowRange,50,2000)
-    for _,player in ipairs(Players:GetPlayers()) do
-        if player==LocalPlayer then continue end
-        if not IsAlive(player) then continue end
-        local hrp=GetHRP(player) if not hrp then continue end
-        local dist3d=GetDistance(player) if dist3d>maxRange then continue end
-        local screenPos,onScreen=WorldToScreen(hrp.Position)
-        local dir=(screenPos-refPoint) if dir.Magnitude<0.01 then continue end
-        local dirNorm=dir.Unit
-        local fovR=State.AimbotFOV
-        local arrowPos=refPoint+dirNorm*fovR
-        local col
-        if State.AimbotFOVTeamColor then
-            local tc=player.TeamColor col=tc and tc.Color or Color3.fromRGB(255,60,60)
-        elseif dist3d<60  then col=Color3.fromRGB(0,255,80)
-        elseif dist3d<150 then col=Color3.fromRGB(255,200,0)
-        else                   col=Color3.fromRGB(255,50,50) end
-        local arrowLen=14; local perpDir=Vector2.new(-dirNorm.Y,dirNorm.X)
-        local lineD=Drawing.new("Line"); lineD.Visible=true; lineD.From=arrowPos-dirNorm*arrowLen; lineD.To=arrowPos; lineD.Color=col; lineD.Thickness=2; table.insert(FOVArrowDrawings,lineD)
-        local tipL=Drawing.new("Line"); tipL.Visible=true; tipL.From=arrowPos; tipL.To=arrowPos-dirNorm*7+perpDir*5; tipL.Color=col; tipL.Thickness=2; table.insert(FOVArrowDrawings,tipL)
-        local tipR=Drawing.new("Line"); tipR.Visible=true; tipR.From=arrowPos; tipR.To=arrowPos-dirNorm*7-perpDir*5; tipR.Color=col; tipR.Thickness=2; table.insert(FOVArrowDrawings,tipR)
-        local nameD=Drawing.new("Text"); nameD.Visible=true; nameD.Text=player.Name; nameD.Position=arrowPos+Vector2.new(-30,-18); nameD.Color=col; nameD.Size=11; nameD.Font=2; nameD.Outline=true; table.insert(FOVArrowDrawings,nameD)
-    end
-end
-
--- ── Aim Shake ──
-local function UpdateAimShake(dt)
-    if not State.AimShake then AimShakeOffset=CFrame.new() return end
-    AimShakeTimer=AimShakeTimer+dt*8
-    local str=math.clamp(State.AimShakeStr/100*0.06,0.001,0.06)
-    local rx=math.sin(AimShakeTimer*3.1)*str; local ry=math.cos(AimShakeTimer*2.7)*str
-    AimShakeOffset=CFrame.Angles(rx,ry,0)
-end
-
--- ── Aim Assist ──
-local function UpdateAimAssist()
-    if not State.AimAssist then return end
-    local target=GetAimbotTarget() if not target then return end
-    local bonePos=target.getPos() if not bonePos then return end
-    local str=math.clamp(State.AimAssistStr/100*0.08,0.001,0.08)
-    local targetCF=CFrame.lookAt(Camera.CFrame.Position,bonePos)
-    Camera.CFrame=Camera.CFrame:Lerp(targetCF,str)
-end
-
-_G._GG_FPS=60
-RunService.RenderStepped:Connect(function(dt)
-    _G._GG_FPS=math.floor(1/math.max(dt,0.001))
-    UpdateESP(); UpdateAimShake(dt); UpdateAimbot(dt); UpdateAimAssist(); UpdateFOVArrows()
-    if State.Minimap then UpdateMinimap() end
-end)
-
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         task.wait(1); CreateESPForPlayer(player)
@@ -2979,8 +3238,8 @@ print("GG Script v10.0 | GG UI v5 | User: "..LocalPlayer.Name.." | Admin: "..tos
 task.spawn(function()
     task.wait(0.15)
     pcall(function()
-        MS.cur=root; MS.idx=1; MS.scroll=0
-        if root.items[1] and root.items[1].tipo=="display" then SkipDisp(1) end
+        MS.cur=MS.root; MS.idx=1; MS.scroll=0
+        if MS.root and MS.root.items[1] and MS.root.items[1].tipo=="display" then SkipDisp(1) end
         FixScroll(); Recalc(); Render()
     end)
     pcall(UpdateMobileControls)
