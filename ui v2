@@ -69,6 +69,17 @@ if not table.clone then
     end
 end
 
+-- ── Compatibilidade: funções de executor (CrossExperience, Fluxus, Delta, etc.) ──
+if not setclipboard then setclipboard = function() end end
+if not writefile    then writefile    = function() end end
+if not readfile     then readfile     = function() return nil end end
+if not isfile       then isfile       = function() return false end end
+if not delfile      then delfile      = function() end end
+if not mouse1click  then mouse1click  = function() end end
+if not mouse1press  then mouse1press  = function() end end
+if not mouse1release then mouse1release = function() end end
+if not Drawing      then Drawing      = nil end
+
 -- Device detection
 local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local Conns = {}  -- conexões agrupadas (evita overflow de locals)
@@ -84,7 +95,7 @@ Misc.AdminFrozenPlayers = {}
 --              THEME SYSTEM
 -- ═══════════════════════════════════════════════
 
-local Themes = {
+_G._GGThemes = {
     Dark = {
         Background   = Color3.fromRGB(15, 15, 20),
         Panel        = Color3.fromRGB(22, 22, 30),
@@ -118,7 +129,8 @@ local Themes = {
         ScrollBar    = Color3.fromRGB(150, 150, 180),
     },
 }
-Themes.Custom = (function(t) local c={} for k,v in pairs(t) do c[k]=v end return c end)(Themes.Dark)
+_G._GGThemes.Custom = (function(t) local c={} for k,v in pairs(t) do c[k]=v end return c end)(_G._GGThemes.Dark)
+-- Themes disponível via _G._GGThemes
 
 
 -- ═══════════════════════════════════════════════
@@ -387,8 +399,10 @@ end
 --              ESP SYSTEM
 -- ═══════════════════════════════════════════════
 
-local ESPObjects = {}
-local NPCObjects = {}
+_G._GG_ESPObjects = _G._GG_ESPObjects or {}
+_G._GG_NPCObjects = _G._GG_NPCObjects or {}
+local ESPObjects = _G._GG_ESPObjects
+local NPCObjects = _G._GG_NPCObjects
 
 local function CreateESPForPlayer(player)
     if ESPObjects[player] then return end
@@ -837,19 +851,19 @@ end
 --              AIMBOT SYSTEM v2
 -- ═══════════════════════════════════════════════
 
-local AimbotFOVCircle
+_G._GGFOVCircle = nil
 if Drawing then
-    AimbotFOVCircle = Drawing.new("Circle")
-    AimbotFOVCircle.Filled = false
-    AimbotFOVCircle.Visible = false
-    AimbotFOVCircle.Color = Color3.fromRGB(255, 255, 255)
-    AimbotFOVCircle.Thickness = 1.5
-    AimbotFOVCircle.NumSides = 64
+    _G._GGFOVCircle = Drawing.new("Circle")
+    _G._GGFOVCircle.Filled = false
+    _G._GGFOVCircle.Visible = false
+    _G._GGFOVCircle.Color = Color3.fromRGB(255, 255, 255)
+    _G._GGFOVCircle.Thickness = 1.5
+    _G._GGFOVCircle.NumSides = 64
 end
+local AimbotFOVCircle = _G._GGFOVCircle
 
 -- Humanize: offsets que variam suavemente com o tempo
 local HumanizeOffset = Vector2.new(0, 0)
-local HumanizeTarget = Vector2.new(0, 0)
 local HumanizeTimer  = 0
 
 -- AimShake offset (declarado aqui para o UpdateAimbot não receber nil)
@@ -857,9 +871,11 @@ local AimShakeOffset = CFrame.new()
 local AimShakeTimer  = 0
 
 -- Último alvo para Multi-Target lock
+_G._GGLastLocked = nil
 local LastLockedTarget = nil
 
 -- Controle interno do triggerbot
+_G._GGTrigFiring = false
 local TriggerbotFiring = false
 
 -- ── Wall Check: retorna true se NÃO tem parede entre câmera e posição ──
@@ -934,6 +950,7 @@ local function GetPredictedPosition(player, bonePos)
 end
 
 -- ── Verifica se Aim Key está pressionada ──
+_G._GGAimKeyHeld = false
 local AimKeyHeld = false
 UserInputService.InputBegan:Connect(function(input, processed)
     if not State.AimbotKey then return end
@@ -1590,7 +1607,7 @@ local function CopyPosition()
     if hrp then
         local pos = hrp.Position
         local str = string.format("Vector3.new(%.2f, %.2f, %.2f)", pos.X, pos.Y, pos.Z)
-        setclipboard(str)
+        pcall(function() setclipboard(str) end)
         Notify("Position Copied", str, 4)
     end
 end
@@ -1758,14 +1775,15 @@ local function DestroyMinimap()
     Misc.MinimapDots = {}
 end
 
--- Vars de estado runtime
+_G._GGRt = _G._GGRt or {SelIdx=1, AdmIdx=1, SpectateActive=false, TpLoopActive=false, AdminLoopKickActive=false}
 local SelectedPlayerIndex = 1  -- para Others/Admin player selector
-_G.GGSelName = nil -- tracking por nome (não grudar)
 local AdminSelectedIndex  = 1
-_G.GGAdmName = nil
 local SpectateActive      = false
 local TpLoopActive        = false
 local AdminLoopKickActive = false
+-- Tracking por nome
+_G.GGSelName = _G.GGSelName or nil
+_G.GGAdmName = _G.GGAdmName or nil
 
 local function GetSelectablePlayers()
     local list = {}
@@ -1837,9 +1855,10 @@ local function GetAdminSelectedPlayer()
     return list[AdminSelectedIndex]
 end
 
--- Chat buffer para Misc
-local MiscChatMsg = ""
-local AdminChatMsg = ""
+_G._GGMiscChatMsg = _G._GGMiscChatMsg or ""
+_G._GGAdminChatMsg = _G._GGAdminChatMsg or ""
+local MiscChatMsg = _G._GGMiscChatMsg
+local AdminChatMsg = _G._GGAdminChatMsg
 
 -- ════════════════════════════════════════════════════════
 --   GG UI v5 PREMIUM  |  Integrado ao GG Script v10
@@ -1869,7 +1888,8 @@ local function ApplyFullbright()
     end
 end
 
-local FlyMobileDir = {up=false,down=false,left=false,right=false,up_y=false,down_y=false}
+_G._GGFlyDir = _G._GGFlyDir or {up=false,down=false,left=false,right=false,up_y=false,down_y=false}
+local FlyMobileDir = _G._GGFlyDir
 
 local function SetupFly()
     if Conns.FlyBV then pcall(function() Conns.FlyBV:Destroy() end) Conns.FlyBV=nil end
@@ -1945,7 +1965,7 @@ local function SetupWalkOnWater()
     end)
 end
 
-local OrigCamSubject
+_G._GG_OrigCamSubject = nil
 local function SetupThirdPerson()
     if State.ThirdPerson then
         local dist=math.clamp(State.ThirdPersonDist,5,50)
@@ -1976,37 +1996,12 @@ end
 -- ── Auto-save ──
 local AutoSaveEnabled=true
 local AutoLoadEnabled=true  -- carrega save ao iniciar
-local SaveKeys={
-    "ESP_Names","ESP_Box2D","ESP_Box3D","ESP_Lines","ESP_Distance","ESP_Health",
-    "ESP_HealthColor","ESP_Tool","ESP_Team","ESP_Speed","ESP_Ping","ESP_Status",
-    "ESP_Skeleton","ESP_Hitbox","ESP_Visible","ESP_WallColor","ESP_NameColor",
-    "ESP_EnemyOnly","ESP_AllyOnly","ESP_ColorDist","ESP_FOVArrows","ESP_FOVArrowRange",
-    "ESP_Trajectory","ESP_NPC","ESP_SpawnPoints",
-    "Aimbot","AimbotFOV","AimbotShowFOV","AimbotSmooth","AimbotMode","AimbotBone",
-    "HeadBodySwap","MultiTargetLock","AimbotLock","AimbotNPC","AimbotTeamCheck",
-    "AimbotVisible","AimbotWallCheck","AutoWall","SilentAim","Triggerbot",
-    "TriggerbotDelay","AimPredictionAdv","AimProjSpeed","AimbotHumanize",
-    "HumanizeStrength","AimShake","AimShakeStr","AimAssist","AimAssistStr",
-    "AimbotKey","AimbotFOVTeamColor",
-    "Fly","FlySpeed","InfiniteJump","ClickTeleport","WalkOnWater","ThirdPerson",
-    "ThirdPersonDist","ShowCustomName","CustomNameText","HitboxExpand","HitboxSize",
-    "AutoRejoin","FakeLag","FakeLagAmount","AutoClick",
-    "Fullbright","NoFog","Minimap","RemoveTrees",
-    "FriendAlert","ChatBypass",
-    "AdminGodMode","AdminInvisible","AdminSpeedValue",
-    "Noclip","FreeCamera","JumpHeight","AntiStun","RemoveWater","RemoveShadows",
-    "FreezeDawn","FreezeTime","FootstepAmplify","FootstepVol","RadarAlert",
-    "AutoReply","AutoReplyText","GGChatEnabled","TrailEnabled","ShowFPS","ShowPing",
-    "ActiveTheme","AutoSwapTarget","FlickMode","WeaponOnly",
-}
 -- ══════════════════════════════════════════════════════
 --  SAVE / LOAD — writefile persistente + fallback attr
 -- ══════════════════════════════════════════════════════
 local GG_SAVE_FILE = "GGScript_v11_save.json"
-local _Http = game:GetService("HttpService")
 
--- Todas as chaves do State que devem ser salvas
-local _SaveStateKeys = {
+_G._GGSaveKeys = {
     "ESP_Names","ESP_Box2D","ESP_Box3D","ESP_Lines","ESP_Distance","ESP_Health",
     "ESP_HealthColor","ESP_Tool","ESP_Team","ESP_Speed","ESP_Ping","ESP_Status",
     "ESP_Skeleton","ESP_Hitbox","ESP_Visible","ESP_WallColor","ESP_NameColor",
@@ -2036,30 +2031,25 @@ local _SaveStateKeys = {
 local function SaveSettings()
     pcall(function()
         local data = {}
-        -- Salva todos os States
-        for _, k in ipairs(_SaveStateKeys) do
+        for _, k in ipairs(_G._GGSaveKeys) do
             if State[k] ~= nil then data[k] = State[k] end
         end
-        -- Salva configurações gerais
         data["_Key"]      = CFG.OpenKeyStr
         data["_Side"]     = CFG.MenuSide
         data["_AutoSave"] = AutoSaveEnabled
         data["_AutoLoad"] = AutoLoadEnabled
-        local ok, json = pcall(function() return _Http:JSONEncode(data) end)
+        local ok, json = pcall(function() return HttpService:JSONEncode(data) end)
         if not ok or not json then return end
-        -- Tenta writefile (executor) primeiro — persistente entre sessões
         local wrote = false
         pcall(function()
-            if writefile then
-                writefile(GG_SAVE_FILE, json)
-                wrote = true
-            end
+            if writefile then writefile(GG_SAVE_FILE, json); wrote = true end
         end)
-        -- Fallback: SetAttribute (persiste só na sessão atual)
         if not wrote then
             pcall(function() LocalPlayer:SetAttribute("GGSave_v11", json) end)
         end
     end)
+    -- Salva key binds junto
+    pcall(KBSave)
 end
 
 local function LoadSettings()
@@ -2069,7 +2059,7 @@ local function LoadSettings()
         if readfile and isfile and isfile(GG_SAVE_FILE) then
             local raw = readfile(GG_SAVE_FILE)
             if raw and raw ~= "" then
-                local ok, data = pcall(function() return _Http:JSONDecode(raw) end)
+                local ok, data = pcall(function() return HttpService:JSONDecode(raw) end)
                 if ok and data then
                     for k, v in pairs(data) do
                         if k:sub(1,1) ~= "_" and State[k] ~= nil then
@@ -2090,7 +2080,7 @@ local function LoadSettings()
         pcall(function()
             local raw = LocalPlayer:GetAttribute("GGSave_v11")
             if not raw or raw == "" then return end
-            local ok, data = pcall(function() return _Http:JSONDecode(raw) end)
+            local ok, data = pcall(function() return HttpService:JSONDecode(raw) end)
             if not ok or not data then return end
             for k, v in pairs(data) do
                 if k:sub(1,1) ~= "_" and State[k] ~= nil then
@@ -2107,18 +2097,22 @@ end
 
 local function DeleteSave()
     pcall(function()
-        if delfile and isfile and isfile(GG_SAVE_FILE) then
-            delfile(GG_SAVE_FILE)
+        if delfile and isfile then
+            if isfile(GG_SAVE_FILE) then delfile(GG_SAVE_FILE) end
+            if isfile("GGScript_v11_keybinds.json") then delfile("GGScript_v11_keybinds.json") end
         end
     end)
-    pcall(function() LocalPlayer:SetAttribute("GGSave_v11", nil) end)
+    pcall(function() LocalPlayer:SetAttribute("GGSave_v11",  nil) end)
+    pcall(function() LocalPlayer:SetAttribute("GGKBinds_v11", nil) end)
     pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave", nil) end)
+    pcall(function() LocalPlayer:SetAttribute("GGKBinds", nil) end)  -- compat
+    Notify("🗑 Save","Tudo deletado!",3)
 end
 
 -- AUTO-LOAD ao iniciar
 if AutoLoadEnabled then LoadSettings() end
--- AUTO-SAVE a cada 8 segundos se ligado
-task.spawn(function() while true do task.wait(8) if AutoSaveEnabled then SaveSettings() end end end)
+-- AUTO-SAVE a cada 30 segundos (configs + binds)
+task.spawn(function() while true do task.wait(30) if AutoSaveEnabled then SaveSettings() end end end)
 
 
 -- ── Notify (alias, mesma função definida acima) ──
@@ -2307,11 +2301,9 @@ local function TI(t,s,d) return TweenInfo.new(t,s or Enum.EasingStyle.Quint,d or
 local function Tw(obj,props,t,s,d) TweenService:Create(obj,TI(t,s,d),props):Play() end
 
 -- ── ScreenGui ──
-local InfoPanel = nil  -- painel info (não implementado, guardado)
 local SG = Instance.new("ScreenGui")
 SG.Name="GGTrainer" SG.ResetOnSpawn=false SG.IgnoreGuiInset=true
 SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG.DisplayOrder=999
-local ScreenGui = SG  -- alias para compatibilidade
 local _sgok=false
 pcall(function() SG.Parent=game:GetService("CoreGui") _sgok=true end)
 if not _sgok then SG.Parent=PlayerGui end
@@ -2595,17 +2587,54 @@ local KBActivateMod   = Enum.KeyCode.LeftAlt  -- modificador padrão (Alt)
 local KBActivateTrg   = Enum.KeyCode.X         -- trigger padrão (X)
 local KBActivateStr   = "Alt+X"               -- exibição
 
-local function KBGetId(it)
-    return tostring(it)
-end
+-- KBGetId: identifica item pelo endereço (via tostring implícito)
 
 local function KBSave()
     pcall(function()
         local t={}
-        for it,bind in pairs(KeyBindMap) do t[KBGetId(it)]=bind.str end
-        LocalPlayer:SetAttribute("GGKBinds", game:GetService("HttpService"):JSONEncode(t))
+        for it,bind in pairs(KeyBindMap) do
+            if it.label then t[it.label]=bind.str end
+        end
+        local ok,json=pcall(function() return game:GetService("HttpService"):JSONEncode(t) end)
+        if not ok or not json then return end
+        local wrote=false
+        pcall(function() if writefile then writefile("GGScript_v11_keybinds.json",json); wrote=true end end)
+        if not wrote then pcall(function() LocalPlayer:SetAttribute("GGKBinds_v11",json) end) end
     end)
 end
+
+-- KBLoadFromFile via _G (não ocupa registro do main chunk)
+_G.KBLoadFromFile = function()
+    pcall(function()
+        local raw=nil
+        pcall(function() if readfile and isfile and isfile("GGScript_v11_keybinds.json") then raw=readfile("GGScript_v11_keybinds.json") end end)
+        if not raw or raw=="" then pcall(function() raw=LocalPlayer:GetAttribute("GGKBinds_v11") end) end
+        if not raw or raw=="" then return end
+        local ok,data=pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
+        if not ok or not data then return end
+        local allItems={}
+        local function scanMenu(menu,seen)
+            if not menu then return end; seen=seen or {}; if seen[menu] then return end; seen[menu]=true
+            for _,it in ipairs(menu.items or {}) do
+                table.insert(allItems,it)
+                if it.tipo=="submenu" and it.subm then scanMenu(it.subm,seen) end
+            end
+        end
+        if MS and MS.root then scanMenu(MS.root) end
+        local restored=0
+        for label,keyStr in pairs(data) do
+            for _,it in ipairs(allItems) do
+                if it.label==label then
+                    local kc=nil; pcall(function() kc=Enum.KeyCode[keyStr] end)
+                    if kc then KeyBindMap[it]={key=kc,str=keyStr}; restored=restored+1 end
+                    break
+                end
+            end
+        end
+        if restored>0 then Notify("🔑 Key Binds",restored.." bind(s) restaurado(s)!",3) end
+    end)
+end
+
 
 local function KBStart(item)
     if not item then return end
@@ -2650,12 +2679,12 @@ end
 
 -- ── Build KeyBind submenu display items ──
 local mKBList = NewMenu("Binds Ativos","Lista de binds atuais")
-local kbListItems = {}
+mKBList._kbItems = {}
 
 local function RefreshKBList()
     -- Clear existing items
     mKBList.items = {}
-    kbListItems = {}
+    mKBList._kbItems = {}
     local count=0
     for item, bind in pairs(KeyBindMap) do
         count=count+1
@@ -2664,7 +2693,7 @@ local function RefreshKBList()
             KBRemove(capItem)
             RefreshKBList()
         end)
-        table.insert(kbListItems, disp)
+        table.insert(mKBList._kbItems, disp)
     end
     if count==0 then
         AddItem(mKBList,"display","(Nenhum bind ativo)")
@@ -2690,8 +2719,7 @@ do
     g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,0.38)})
 end
 Reg(GGBtn,"BackgroundColor3")
--- alias para código antigo
-local OpenBtn = GGBtn
+-- alias para código antigo (removido para economizar registro)
 
 do
     local dr,dStart,dOrig,moved=false,nil,nil,false
@@ -2721,8 +2749,7 @@ local Panel = MkF({
     BackgroundColor3=P.BG; ZIndex=10; ClipsDescendants=false; Visible=false; radius=6;
     stroke={c=RGBC,t=1,tr=0.65,reg=true};
 },SG)
--- alias para código antigo
-local MainFrame = Panel
+-- MainFrame = Panel (alias removido, economiza registro)
 
 MkF({Size=UDim2.new(1,22,1,22);Position=UDim2.new(0,-11,0,-11);BackgroundColor3=P.Black;BackgroundTransparency=0.42;ZIndex=9;radius=12;},Panel)
 
@@ -3011,6 +3038,7 @@ local function GoBack()
         GGBtn.Text="▶ GG"
         if GGDPad    then GGDPad.Visible=false end
         if GGBackBtn then GGBackBtn.Visible=false end
+        if _G._GGEnterBtn then _G._GGEnterBtn.Visible=false end
     end
 end
 
@@ -3076,6 +3104,7 @@ local function OpenMenu()
     GGBtn.Text="▼ GG"
     if GGDPad    then GGDPad.Visible=true end
     if GGBackBtn then GGBackBtn.Visible=true end
+    if _G._GGEnterBtn then _G._GGEnterBtn.Visible=true end
     _G.GGBlock.Block()
 end
 
@@ -3088,6 +3117,7 @@ local function CloseMenu()
     GGBtn.Text="▶ GG"
     if GGDPad    then GGDPad.Visible=false end
     if GGBackBtn then GGBackBtn.Visible=false end
+    if _G._GGEnterBtn then _G._GGEnterBtn.Visible=false end
     _G.GGBlock.Unblock()
 end
 
@@ -3095,7 +3125,7 @@ local function ToggleMenu() if MS.open then CloseMenu() else OpenMenu() end end
 GGBtn.Activated:Connect(ToggleMenu)
 
 -- ── Teclado ──
-local nCool=false -- nCool desativado: sem delay entre teclas
+-- nCool desativado: sem delay entre teclas
 
 local function ComboTriggered(inp)
     if #CFG.OpenKeys==1 then return inp.KeyCode==CFG.OpenKeys[1] end
@@ -3193,8 +3223,9 @@ end
 -- Mobile update (sem locals extras)
 _G.GGUpdateMobile = function()
     if not IsMobile then return end
-    if GGDPad    then GGDPad.Visible=MS.open end
-    if GGBackBtn then GGBackBtn.Visible=MS.open end
+    if GGDPad        then GGDPad.Visible        = MS.open end
+    if GGBackBtn     then GGBackBtn.Visible     = MS.open end
+    if _G._GGEnterBtn then _G._GGEnterBtn.Visible = MS.open end
 end
 
 -- ════════════════════════════════════════════════════════
@@ -3921,18 +3952,17 @@ do
     asIt=AddItem(mSave,"toggle","Auto Save",AutoSaveEnabled,function(v)
         AutoSaveEnabled=v
         SaveSettings()
-        pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave",v) end)
         Notify("Save",v and "Auto Save ATIVADO" or "Auto Save DESATIVADO",2)
     end)
     AddItem(mSave,"action","💾 Salvar Agora",function()
         SaveSettings()
-        pcall(function() LocalPlayer:SetAttribute("GGSave_AutoSave",AutoSaveEnabled) end)
-        Notify("💾 Save","Configurações salvas!",2)
+        Notify("💾 Save","Configs + Key Binds salvos!",2)
     end)
     AddItem(mSave,"action","📂 Carregar Agora",function()
         LoadSettings()
+        _G.KBLoadFromFile()
         task.defer(function() Render() end)
-        Notify("📂 Load","Configurações carregadas!",2)
+        Notify("📂 Load","Configs + Key Binds carregados!",2)
     end)
     AddItem(mSave,"toggle","Auto Load (ao entrar)",AutoLoadEnabled,function(v)
         AutoLoadEnabled=v
@@ -3941,9 +3971,8 @@ do
     end)
     AddItem(mSave,"action","🗑 Deletar Save",function()
         DeleteSave()
-        Notify("🗑 Save","Save deletado!",3)
     end)
-    AddItem(mSave,"display","Auto Save: salva a cada 8s")
+    AddItem(mSave,"display","Auto Save: salva a cada 30s")
     AddItem(mSave,"display","Auto Load: carrega ao entrar no jogo")
 end
 
@@ -4166,9 +4195,10 @@ if IsMobile then
     local g=78
     _G.GGMBtn("▲",g,0,NavUp) _G.GGMBtn("◄",0,g,NavLeft) _G.GGMBtn("●",g,g,Confirm) _G.GGMBtn("►",g*2,g,NavRight) _G.GGMBtn("▼",g,g*2,NavDown)
 
+    -- ── Botão VOLTAR ──
     GGBackBtn=Instance.new("TextButton")
     GGBackBtn.Size=UDim2.new(0,114,0,42) GGBackBtn.Position=UDim2.new(1,-124,1,-292)
-    GGBackBtn.BackgroundColor3=RGBC GGBackBtn.Text="◄ BACK"
+    GGBackBtn.BackgroundColor3=RGBC GGBackBtn.Text="◄ VOLTAR"
     GGBackBtn.TextColor3=P.White GGBackBtn.Font=Enum.Font.GothamBold
     GGBackBtn.TextSize=15 GGBackBtn.BorderSizePixel=0
     GGBackBtn.ZIndex=30 GGBackBtn.AutoButtonColor=false
@@ -4177,6 +4207,23 @@ if IsMobile then
     do local s=Instance.new("UIStroke",GGBackBtn) s.Color=P.Black s.Thickness=1.5 s.Transparency=0.38 end
     Reg(GGBackBtn,"BackgroundColor3")
     GGBackBtn.Activated:Connect(GoBack)
+
+    -- ── Botão ENTER ──
+    local _enterBtn=Instance.new("TextButton")
+    _enterBtn.Size=UDim2.new(0,114,0,42) _enterBtn.Position=UDim2.new(1,-124,1,-242)
+    _enterBtn.BackgroundColor3=Color3.fromRGB(30,180,80) _enterBtn.Text="✓ ENTER"
+    _enterBtn.TextColor3=P.White _enterBtn.Font=Enum.Font.GothamBold
+    _enterBtn.TextSize=15 _enterBtn.BorderSizePixel=0
+    _enterBtn.ZIndex=30 _enterBtn.AutoButtonColor=false
+    _enterBtn.Visible=false _enterBtn.Parent=SG
+    Instance.new("UICorner",_enterBtn).CornerRadius=UDim.new(0,9)
+    do local s=Instance.new("UIStroke",_enterBtn) s.Color=P.Black s.Thickness=1.5 s.Transparency=0.38 end
+    _enterBtn.Activated:Connect(function()
+        Tw(_enterBtn,{BackgroundColor3=Color3.fromRGB(80,255,130)},0.06)
+        task.delay(0.14,function() Tw(_enterBtn,{BackgroundColor3=Color3.fromRGB(30,180,80)},0.10) end)
+        Confirm()
+    end)
+    _G._GGEnterBtn = _enterBtn
 end
 
 end -- fim BuildMenus()
@@ -4288,6 +4335,13 @@ task.spawn(function()
         if MS.root and MS.root.items[1] and MS.root.items[1].tipo=="display" then SkipDisp(1) end
         FixScroll(); Recalc(); Render()
     end)
+    -- Restaura Key Binds (precisa que os menus já estejam criados)
+    if AutoLoadEnabled then
+        task.wait(0.10)
+        pcall(_G.KBLoadFromFile)
+        task.wait(0.05)
+        pcall(Render)
+    end
     pcall(_G.GGUpdateMobile)
 end)
 
