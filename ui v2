@@ -1760,9 +1760,9 @@ end
 
 -- Vars de estado runtime
 local SelectedPlayerIndex = 1  -- para Others/Admin player selector
-local SelectedPlayerName  = nil -- tracking por nome (não grudar)
+_G.GGSelName = nil -- tracking por nome (não grudar)
 local AdminSelectedIndex  = 1
-local AdminSelectedName   = nil
+_G.GGAdmName = nil
 local SpectateActive      = false
 local TpLoopActive        = false
 local AdminLoopKickActive = false
@@ -1776,7 +1776,7 @@ local function GetSelectablePlayers()
 end
 
 -- Retorna label "DisplayName (@Name)" do player
-local function GetPlayerLabel(p)
+_G.GGGetLabel = function(p)
     local dn = p.DisplayName or p.Name
     local un = p.Name
     if dn == un then return un end
@@ -1785,11 +1785,11 @@ end
 
 local function GetSelectedPlayer()
     local list = GetSelectablePlayers()
-    if #list == 0 then SelectedPlayerName=nil; return nil end
+    if #list == 0 then _G.GGSelName=nil; return nil end
     -- Tenta encontrar pelo nome salvo (não grudar quando lista muda)
-    if SelectedPlayerName then
+    if _G.GGSelName then
         for i, p in ipairs(list) do
-            if p.Name == SelectedPlayerName then
+            if p.Name == _G.GGSelName then
                 SelectedPlayerIndex = i
                 return p
             end
@@ -1797,7 +1797,7 @@ local function GetSelectedPlayer()
     end
     -- Fallback: índice clampado
     SelectedPlayerIndex = math.clamp(SelectedPlayerIndex, 1, #list)
-    SelectedPlayerName = list[SelectedPlayerIndex].Name
+    _G.GGSelName = list[SelectedPlayerIndex].Name
     return list[SelectedPlayerIndex]
 end
 
@@ -1822,18 +1822,18 @@ end
 
 local function GetAdminSelectedPlayer()
     local list = GetAdminSelectablePlayers()
-    if #list == 0 then AdminSelectedName=nil; return nil end
+    if #list == 0 then _G.GGAdmName=nil; return nil end
     -- Tenta encontrar pelo nome salvo
-    if AdminSelectedName then
+    if _G.GGAdmName then
         for i, p in ipairs(list) do
-            if p.Name == AdminSelectedName then
+            if p.Name == _G.GGAdmName then
                 AdminSelectedIndex = i
                 return p
             end
         end
     end
     AdminSelectedIndex = math.clamp(AdminSelectedIndex, 1, #list)
-    AdminSelectedName = list[AdminSelectedIndex].Name
+    _G.GGAdmName = list[AdminSelectedIndex].Name
     return list[AdminSelectedIndex]
 end
 
@@ -3157,14 +3157,12 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
     if MS.kbOpen then return end
     if ComboTriggered(inp) then ToggleMenu() return end
     if not MS.open then return end
-    -- Sem nCool aqui: InputBegan já é 1 evento por tecla, instantâneo
+    -- Só setinhas navegam o menu — WASD não interfere
     local k=inp.KeyCode
-    -- WASD: navega no menu (WASD ainda anda normalmente quando menu fechado)
-    -- Setinhas: sempre navegam no menu (quando aberto) e não andam (bloqueadas pelo GGBlock.Block)
-    if     k==Enum.KeyCode.Up    or k==Enum.KeyCode.W then NavUp()
-    elseif k==Enum.KeyCode.Down  or k==Enum.KeyCode.S then NavDown()
-    elseif k==Enum.KeyCode.Left  or k==Enum.KeyCode.A then NavLeft()
-    elseif k==Enum.KeyCode.Right or k==Enum.KeyCode.D then NavRight()
+    if     k==Enum.KeyCode.Up    then NavUp()
+    elseif k==Enum.KeyCode.Down  then NavDown()
+    elseif k==Enum.KeyCode.Left  then NavLeft()
+    elseif k==Enum.KeyCode.Right then NavRight()
     elseif k==Enum.KeyCode.Return or k==Enum.KeyCode.KeypadEnter then Confirm()
     elseif k==Enum.KeyCode.Backspace or k==Enum.KeyCode.Escape then GoBack()
     elseif k==Enum.KeyCode.I then
@@ -3172,15 +3170,15 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
     end
 end)
 
--- Segurar ↑/↓/←/→ (e WASD quando menu aberto): pressionar uma vez = move 1; segurar = move contínuo
+-- Segurar ↑/↓/←/→: pressionar uma vez = move 1; segurar = move contínuo (WASD não navega)
 do
     local hold,rep=0,0
     RunService.Heartbeat:Connect(function(dt)
         if not MS.open or MS.inputOpen or MS.kbOpen then hold=0 rep=0 return end
-        local u  = UserInputService:IsKeyDown(Enum.KeyCode.Up)    or UserInputService:IsKeyDown(Enum.KeyCode.W)
-        local dn = UserInputService:IsKeyDown(Enum.KeyCode.Down)   or UserInputService:IsKeyDown(Enum.KeyCode.S)
-        local lt = UserInputService:IsKeyDown(Enum.KeyCode.Left)   or UserInputService:IsKeyDown(Enum.KeyCode.A)
-        local rt = UserInputService:IsKeyDown(Enum.KeyCode.Right)  or UserInputService:IsKeyDown(Enum.KeyCode.D)
+        local u  = UserInputService:IsKeyDown(Enum.KeyCode.Up)
+        local dn = UserInputService:IsKeyDown(Enum.KeyCode.Down)
+        local lt = UserInputService:IsKeyDown(Enum.KeyCode.Left)
+        local rt = UserInputService:IsKeyDown(Enum.KeyCode.Right)
         if u or dn or lt or rt then
             rep=rep+dt
             if rep >= 0.10 then
@@ -3696,16 +3694,16 @@ do
         local list=GetSelectablePlayers() if #list==0 then return end
         SelectedPlayerIndex=(SelectedPlayerIndex%#list)+1
         local p=list[math.clamp(SelectedPlayerIndex,1,#list)]
-        SelectedPlayerName=p.Name
-        selIt.label="◄ "..GetPlayerLabel(p).." ►" Render()
+        _G.GGSelName=p.Name
+        selIt.label="◄ ".._G.GGGetLabel(p).." ►" Render()
     end)
     selIt.isPlayerSel=true
     selIt.prevCb=function()
         local list=GetSelectablePlayers() if #list==0 then return end
         SelectedPlayerIndex=((SelectedPlayerIndex-2)%#list)+1
         local p=list[math.clamp(SelectedPlayerIndex,1,#list)]
-        SelectedPlayerName=p.Name
-        selIt.label="◄ "..GetPlayerLabel(p).." ►" Render()
+        _G.GGSelName=p.Name
+        selIt.label="◄ ".._G.GGGetLabel(p).." ►" Render()
     end
     -- atualiza label do player selecionado (rastreia por nome)
     task.spawn(function()
@@ -3714,11 +3712,11 @@ do
             if #list>0 then
                 -- Tenta manter o mesmo player pelo nome
                 local found=false
-                if SelectedPlayerName then
+                if _G.GGSelName then
                     for i,p in ipairs(list) do
-                        if p.Name==SelectedPlayerName then
+                        if p.Name==_G.GGSelName then
                             SelectedPlayerIndex=i; found=true
-                            selIt.label="◄ "..GetPlayerLabel(p).." ►"
+                            selIt.label="◄ ".._G.GGGetLabel(p).." ►"
                             break
                         end
                     end
@@ -3726,11 +3724,11 @@ do
                 if not found then
                     SelectedPlayerIndex=math.clamp(SelectedPlayerIndex,1,#list)
                     local p=list[SelectedPlayerIndex]
-                    SelectedPlayerName=p.Name
-                    selIt.label="◄ "..GetPlayerLabel(p).." ►"
+                    _G.GGSelName=p.Name
+                    selIt.label="◄ ".._G.GGGetLabel(p).." ►"
                 end
                 if MS.open then Render() end
-            else selIt.label="◄ Ninguém ►" SelectedPlayerName=nil end
+            else selIt.label="◄ Ninguém ►" _G.GGSelName=nil end
         end
     end)
     AddItem(mOthers,"action","Fling Player",function() ExecButtonAction("_Fling") end)
@@ -3841,27 +3839,27 @@ if IsAdmin then
         local list=GetAdminSelectablePlayers() if #list==0 then Notify("Admin","Nenhum player disponível!",2) return end
         AdminSelectedIndex=(AdminSelectedIndex%#list)+1
         local p=list[math.clamp(AdminSelectedIndex,1,#list)]
-        AdminSelectedName=p.Name
-        adminSelIt.label="◄ "..GetPlayerLabel(p).." ►" Render()
+        _G.GGAdmName=p.Name
+        adminSelIt.label="◄ ".._G.GGGetLabel(p).." ►" Render()
     end)
     adminSelIt.isPlayerSel=true
     adminSelIt.prevCb=function()
         local list=GetAdminSelectablePlayers() if #list==0 then return end
         AdminSelectedIndex=((AdminSelectedIndex-2)%#list)+1
         local p=list[math.clamp(AdminSelectedIndex,1,#list)]
-        AdminSelectedName=p.Name
-        adminSelIt.label="◄ "..GetPlayerLabel(p).." ►" Render()
+        _G.GGAdmName=p.Name
+        adminSelIt.label="◄ ".._G.GGGetLabel(p).." ►" Render()
     end
     task.spawn(function()
         while true do task.wait(1)
             local list=GetAdminSelectablePlayers()
             if #list>0 then
                 local found=false
-                if AdminSelectedName then
+                if _G.GGAdmName then
                     for i,p in ipairs(list) do
-                        if p.Name==AdminSelectedName then
+                        if p.Name==_G.GGAdmName then
                             AdminSelectedIndex=i; found=true
-                            adminSelIt.label="◄ "..GetPlayerLabel(p).." ►"
+                            adminSelIt.label="◄ ".._G.GGGetLabel(p).." ►"
                             break
                         end
                     end
@@ -3869,10 +3867,10 @@ if IsAdmin then
                 if not found then
                     AdminSelectedIndex=math.clamp(AdminSelectedIndex,1,#list)
                     local p=list[AdminSelectedIndex]
-                    AdminSelectedName=p.Name
-                    adminSelIt.label="◄ "..GetPlayerLabel(p).." ►"
+                    _G.GGAdmName=p.Name
+                    adminSelIt.label="◄ ".._G.GGGetLabel(p).." ►"
                 end
-            else adminSelIt.label="◄ Ninguém ►" AdminSelectedName=nil end
+            else adminSelIt.label="◄ Ninguém ►" _G.GGAdmName=nil end
         end
     end)
     AddItem(mAdmin,"action","Freeze Player",function() ExecButtonAction("_Freeze") end)
